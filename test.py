@@ -96,10 +96,10 @@ duration  = acq_data_size / size_of_data_per_sec * 1.0
 num_lost_p = np.count_nonzero(udp_notcont)
 
 if no_lost:
-    print(f'you have aquired {duration:.3f} \
-            sec of data: {acq_data_size/1024/1204:.3f}  MB')
+    print(f'you have aquired {duration:.3f} sec, ' +
+            f'{acq_data_size/1024/1204:.3f} MB of data')
 idx = id_offsets > 1
 num_lost_p = len(id_offsets[idx])
-print(num_lost_p, " packet lost", num_lost_p/count * 100, " % lost ")
+print(f"{num_lost_p} packet lost, {num_lost_p/count * 100}% of packets lost.")
 
 print("--- %s seconds ---" % (time.time() - start_time))

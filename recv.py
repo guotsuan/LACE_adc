@@ -29,6 +29,8 @@ cycle = 49999
 
 sock = socket.socket(socket.AF_INET,  socket.SOCK_RAW, socket.IPPROTO_UDP)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1073741824)
+if err:
+    raise("set socket option error")
 # err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 262144*8) 
 
 sock.bind((udp_ip, udp_port))
@@ -96,8 +98,8 @@ duration  = acq_data_size / size_of_data_per_sec * 1.0
 num_lost_p = np.count_nonzero(udp_notcont)
 
 if no_lost:
-    print(f'you have aquired {duration:.3f} \
-            sec of data: {acq_data_size/1024/1204:.3f}  MB')
+    print(f"you have aquired {duration} sec")
+    print(f"get {acq_data_size/1024/1204:.3f}  MB of Data")
 idx = id_offsets > 1
 num_lost_p = len(id_offsets[idx])
 print(num_lost_p, " packet lost", num_lost_p/count * 100, " % lost ")
