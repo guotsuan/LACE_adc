@@ -15,7 +15,9 @@ import numpy as np
 import sys
 import time
 
-def cont_check(t1, t2):
+def id_offset(t0, t1, cycle):
+    return (np.int32(t1) - np.int32(t0)) % cycle
+
 
 src_udp_ip = "192.168.90.20"
 src_udp_port = 59000
@@ -56,42 +58,45 @@ start_time = time.time()
 udp_payload = np.zeros((packet_size - header_size, count), dtype=np.int16)
 udp_notcont = np.zeros(count, np.bool)
 
-token0 = np.frombuffer(udp_p[4:6], dtype='>u2')
-# cycle = 2**16 -1
+token0 = int.from_bytes(udp_p[4:6], 'big',signed=False)
+token1 = int.from_bytes(udp_p[packet_size+4:packet_size + 6], 'big',
+        signed=False)
+
 cycle = 49999
+# maxid = 0
 
-maxid = 0
 
-token1 = np.frombuffer(udp_p[packet_size+4:packet_size + 6], 
-        dtype='>u2')
-
-if np.int32(token1) - np.int32(token0):
-    same_id = 0
+if id_offset(token0, token1, cycle):
+    same_id_before = 0
 else:
-    same_id = 1
+    same_id_before = 1
+
 for i in range(count):
     block_i = i*packet_size
-    # h1 = block_i + 4
-    # h2 = block_i + 6
-    # token1 = np.frombuffer(udp_p[h1:h2], dtype='>u2')
+    h1 = block_i + 4
+    h2 = block_i + 6
+    token1 = int.from_bytes(udp_p[h1:h2], 'big', signed=False)
 
-    # diff = (np.int32(token1[0]) - np.int32(token0[0])) % cycle
-    # if same_id:
-        # if diff > 1:
-            # udp_notcont[i] = True
-            # print("warning: packet lose", i, token0, token1)
-        # same_id = 0
-    # else:
-        # if diff > 0:
-            # udp_notcont[i] = True
-            # print("warning: packet lose", i, token0, token1)
-        # same_id = 1
+    diff = id_offset(token0, token1, cycle)
 
-    # token0 = token1
+    if same_id_before:
+        if diff > 1:
+            udp_notcont[i] = True
+            print("warning: packet lose", i, token0, token1)
+
+        same_id_before = 0
+    else:
+        if diff > 0:
+            udp_notcont[i] = True
+            print("warning: packet lose", i, token0, token1)
+
+        same_id_before = 1
+
+    token0 = token1
 
     p1 = block_i + 28
     p2 = block_i + packet_size
-    udp_payload[:, i] = udp_p[p1:p2]
+    udp_payload[:, i] = mem_buff[p1:p2]
     
 print("--- %s seconds ---" % (time.time() - start_time))
 sample_rate = 480e6
@@ -102,8 +107,8 @@ duration  = acq_data_size / size_of_data_per_sec * 1.0
 
 num_lost_p = np.count_nonzero(udp_notcont)
 
-print('you have aquired ', duration, " sec of data: ", acq_data_size/1024/1204,
-        " MB")
+print(f'you have aquired {duration:.3f} \
+        sec of data: {acq_data_size/1024/1204:.3f}  MB')
 
 print(num_lost_p, " packet lost", num_lost_p/count * 100, " % lost ")
 
