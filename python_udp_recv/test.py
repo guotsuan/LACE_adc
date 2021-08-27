@@ -45,15 +45,17 @@ output_fft = True
 
 # sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 sock = socket.socket(socket.AF_INET,  socket.SOCK_RAW, socket.IPPROTO_UDP)
-err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1073741824)
+# err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1073741824)
+# err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 3147584)
+
 # sock.setblocking(True)
 # err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
-if err:
-    raise ValueError("set socket error")
+# if err:
+    # raise ValueError("set socket error")
 
 sock.bind((udp_ip, udp_port))
 
-count = 2048
+count = 20
 
 payload_size = 8192
 header_size = 28
@@ -94,7 +96,7 @@ def dumpdata(file_name, data, stime, t1, ns, hdf5=False, header=None):
         dset.attrs['offset_time'] = t1
         dset.attrs['nsample'] = t1
         f.close()
-        
+
     # np.save('/dev/shm/' + file_name, data)
     # ff = h5.File(file_name, 'w')
     # ff.create_dataset('voltage', data=data )
@@ -112,7 +114,9 @@ if __name__ == '__main__':
     id_tail_before = 0
 
     # Drop the fist data frame to avoid unstable
+    print(1)
     sock.recv(packet_size)
+    print(2)
     i = 0
     file_cnt = 0
 
@@ -154,7 +158,7 @@ if __name__ == '__main__':
 
         id_arr = np.int32(np.frombuffer(udp_header_id,dtype='>u2'))
         if i > 0:
-            if (id_arr[0] - id_tail_before > 1) or :
+            if id_arr[0] - id_tail_before > 1:
                 print("block is not connected", id_tail_before, id_arr[0])
                 print("program last ", time.time() - s_time)
                 # raise ValueError("block is not connected")
@@ -171,11 +175,11 @@ if __name__ == '__main__':
                 no_lost = True
 
         udp_payload_arr = np.frombuffer(load_buff, dtype='>i2')
-            
+
         sample_rate = 480e6
-        one_sample_size = 2 
-        size_of_data_per_sec = sample_rate * 2 
-        acq_data_size = count * payload_size 
+        one_sample_size = 2
+        size_of_data_per_sec = sample_rate * 2
+        acq_data_size = count * payload_size
         duration  = acq_data_size / size_of_data_per_sec * 1.0
 
 
@@ -190,19 +194,19 @@ if __name__ == '__main__':
         # print(f"{num_lost_p} packet lost, {num_lost_p/count * 100}% of packets lost.")
 
         # print("--- %s seconds ---" % (time.time() - start_time))
-        
-        
+
+
         if loop_file:
             k = file_cnt % 4
         else:
-            k = file_cnt 
-        if i % 1000 ==0 and no_lost :
-            fout = '/dev/shm/out_' + str(k) +'.h5'
-            nsample = payload_size * count
-            writefile = Process(target=dumpdata,
-                    args=(fout,udp_payload_arr, c_time, t1_time, nsample, True))
-            writefile.start()
-            file_cnt += 1
+            k = file_cnt
+        # if i % 1000 ==0 and no_lost :
+            # fout = '/dev/shm/out_' + str(k) +'.h5'
+            # nsample = payload_size * count
+            # writefile = Process(target=dumpdata,
+                    # args=(fout,udp_payload_arr, c_time, t1_time, nsample, True))
+            # writefile.start()
+            # file_cnt += 1
         # # fout=h5.File(fout, 'w')
         # # fout.create_dataset('voltage', data=udp_payload_arr)
         # # fout.close()
@@ -214,7 +218,7 @@ if __name__ == '__main__':
         else:
             print("file not saved")
         time_now = time.perf_counter()
-        if i % 100 == 0:
+        if i % 10 == 0:
             print(f"block loop time: {time_now - time_before:.3f},", " lost_packet:", \
                     num_lost_all, num_lost_all/i/8192, f"already run: {time_now - s_time:.3f}")
         time_before = time_now
