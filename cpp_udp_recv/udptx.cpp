@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
   Socket::Endpoint Local("0.0.0.0", 0);
   Socket::Endpoint Remote(Settings.IpAddress.c_str(), Settings.UDPPort);
   UDPTransmitter UDPTx(Local, Remote);
-  UDPTx.setBufferSizes(Settings.SocketBufferSize, Settings.SocketBufferSize);
+  UDPTx.setBufferSizes(50000, Settings.SocketBufferSize);
   UDPTx.printBufferSizes();
 
   Timer RateTimer;

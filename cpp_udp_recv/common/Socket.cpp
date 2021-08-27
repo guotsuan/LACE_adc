@@ -46,6 +46,7 @@ int Socket::setBufferSizes(int sndbuf, int rcvbuf) {
   }
   if (rcvbuf) {
     setSockOpt(SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+    //setSockOpt(SO_RCVBUFFORCE, &sndbuf, sizeof(sndbuf));
   }
   return 0; // setsockopt for SO_SND/RCVBUFon Linux cannot fail.
 }
@@ -56,8 +57,9 @@ void Socket::getBufferSizes(int & sendBuffer, int & receiveBuffer) {
 }
 
 void Socket::printBufferSizes(void) {
-  //LOG(IPC, Sev::Info, "Socket receive buffer size: {}", getSockOpt(SO_RCVBUF));
-  //LOG(IPC, Sev::Info, "Socket send buffer size: {}", getSockOpt(SO_SNDBUF));
+  printf("Socket receive buffer size: %i \n", getSockOpt(SO_RCVBUF));
+  //printf("Socket force receive buffer size: %i \n", getSockOpt(SO_SNDBUFFORCE));
+  printf("Socket send buffer size: %i \n", getSockOpt(SO_SNDBUF));
 }
 
 void Socket::checkRxBufferSizes(std::int32_t MinRxBufferSize) {

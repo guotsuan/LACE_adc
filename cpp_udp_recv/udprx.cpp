@@ -19,7 +19,7 @@ using namespace std;
 struct {
   int UDPPort{60000};
   int DataSize{8220};
-  int SocketBufferSize{50000000};
+  int SocketBufferSize{1073741824};
 
 } Settings;
 
@@ -59,6 +59,8 @@ int main(int argc, char *argv[]) {
   const int packet_size = 8220;
   std::ofstream out;
   int status_before;
+  int rxbuf;
+  int txbuf;
 
   bool skippable = false; 
   // TOFIX: skip the whole block if a packet is lost
@@ -66,26 +68,28 @@ int main(int argc, char *argv[]) {
   bool loop_files = true;
 
   Socket::Endpoint local("192.168.90.100", Settings.UDPPort);
-  UDPReceiver Receive(local);
-  Receive.setBufferSizes(Settings.SocketBufferSize, Settings.SocketBufferSize);
-  Receive.printBufferSizes();
 
   Timer UpdateTimer;
   auto USecs = UpdateTimer.timeus();
 
+  UDPReceiver Receive(local);
+  Receive.setBufferSizes(Settings.SocketBufferSize, Settings.SocketBufferSize);
+  Receive.printBufferSizes();
 
 start_over:
   RxBytesTotal = 0;
   RxPackets = 0;
+
+  for (int i;i<block_size;i++) {
+      int ReadSize1 = Receive.receive(buffer, BUFFERSIZE);
+  }
 
   int ReadSize1 = Receive.receive(buffer, BUFFERSIZE);
   SeqNo1 = ntohs(*(uint16_t *)(buffer + 4));
   int ReadSize2 = Receive.receive(buffer, BUFFERSIZE);
   SeqNo2 = ntohs(*(uint16_t *)(buffer + 4));
 
-  assert(ReadSize1 == ReadSize2);
-
-
+  //assert(ReadSize1 == ReadSize2);
 
   for (;;) {
     bad_block = false;
@@ -115,6 +119,7 @@ start_over:
 
                 lost_p ++;
                 bad_block = true;
+                exit(1);
             }
             break;
 
@@ -129,6 +134,7 @@ start_over:
                     goto start_over;
                 lost_p ++;
                 bad_block = true;
+                exit(1);
             }
             break;
     }
@@ -138,30 +144,30 @@ start_over:
     SeqNo2 = SeqNo;
    
     //auto start = chrono::steady_clock::now();
-    if ((RxPackets) % block_size == 0) {
-        if (loop_files)
-            filenum = filenum % 5;
-        write_cnt = 0;
-        file_p = 0;
-        out.open("/dev/shm/temp_" + std::to_string(filenum), 
-                std::ofstream::binary|std::ofstream::trunc);
-    }
+    //if ((RxPackets) % block_size == 0) {
+        //if (loop_files)
+            //filenum = filenum % 5;
+        //write_cnt = 0;
+        //file_p = 0;
+        //out.open("/dev/shm/temp_" + std::to_string(filenum), 
+                //std::ofstream::binary|std::ofstream::trunc);
+    //}
 
 
-    if (out.is_open()) {
-        out.seekp(file_p);
-        out.write(buffer, load_size);
-        //out.flush();  is no obviously helpful
-        file_p += load_size;
-        write_cnt++;
-    }
+    //if (out.is_open()) {
+        //out.seekp(file_p);
+        //out.write(buffer, load_size);
+        ////out.flush();  is no obviously helpful
+        //file_p += load_size;
+        //write_cnt++;
+    //}
 
 
-    if (write_cnt == block_size && out.is_open()) {
-        out.close();
-        if (!(skippable && bad_block))
-            filenum += 1;
-    }
+    //if (write_cnt == block_size && out.is_open()) {
+        //out.close();
+        //if (!(skippable && bad_block))
+            //filenum += 1;
+    //}
 
     //auto end = chrono::steady_clock::now();
 
