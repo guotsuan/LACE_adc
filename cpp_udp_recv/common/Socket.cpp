@@ -31,7 +31,7 @@ std::string Socket::getHostByName(std::string &name) {
 }
 
 Socket::Socket(Socket::type stype) {
-  auto type = (stype == Socket::type::UDP) ? SOCK_RAW : SOCK_STREAM;
+  auto type = (stype == Socket::type::UDP) ? SOCK_DGRAM : SOCK_STREAM;
   auto proto = (stype == Socket::type::UDP) ? IPPROTO_UDP : IPPROTO_TCP;
 
   if ((SocketFileDescriptor = socket(AF_INET, type, proto)) == -1) {

@@ -14,6 +14,8 @@
 #include <chrono>
 #include <thread>
 
+#define UDP_RAW
+
 
 using namespace std;
 struct {
@@ -38,27 +40,30 @@ int main(int argc, char *argv[]) {
   app.add_option("-b, --socket_buffer_size", Settings.SocketBufferSize, "socket buffer size (bytes)");
   CLI11_PARSE(app, argc, argv);
 
-  static const int BUFFERSIZE{8220};
+  static const int BUFFERSIZE{8200};
   char buffer[BUFFERSIZE];
   uint64_t RxBytesTotal{0};
   uint64_t filenum{0};
   uint64_t RxBytes{0};
   uint64_t RxPackets{0};
-  uint16_t SeqNo{0};
-  uint16_t SeqNo1{0};
-  uint16_t SeqNo2{0};
+  uint32_t SeqNo{0};
+  uint32_t SeqNo1{0};
+  uint32_t SeqNo2{0};
   uint16_t temp{0};
   uint64_t write_cnt{0};
   uint64_t file_p{0};
   uint64_t disc_cnt{0};
   uint64_t lost_p{0};
   const int intervalUs = 1000000;
-  const int block_size = 8000;
+  const int block_size = 4096;
   const int B1M = 1024*1024;
-  const int load_size = 8192;
-  const int packet_size = 8220;
+  const int load_size = 8200;
+  const int packet_size = 8200;
+  const int cycle = 65535;
+  const int id_offset = load_size - 4;
   std::ofstream out;
   int status_before;
+  int status_now;
   int rxbuf;
   int txbuf;
 
@@ -72,6 +77,7 @@ int main(int argc, char *argv[]) {
   Timer UpdateTimer;
   auto USecs = UpdateTimer.timeus();
 
+  //auto start = chrono::steady_clock::now();
   UDPReceiver Receive(local);
   Receive.setBufferSizes(Settings.SocketBufferSize, Settings.SocketBufferSize);
   Receive.printBufferSizes();
@@ -85,10 +91,16 @@ start_over:
   }
 
   int ReadSize1 = Receive.receive(buffer, BUFFERSIZE);
-  SeqNo1 = ntohs(*(uint16_t *)(buffer + 4));
   int ReadSize2 = Receive.receive(buffer, BUFFERSIZE);
-  SeqNo2 = ntohs(*(uint16_t *)(buffer + 4));
+  //SeqNo1 = ntohs(*(uint16_t *)(buffer + 4));
+  //SeqNo1 = ntohs(*(uint32_t *)(buffer + 8226));
+  //SeqNo2 = ntohs(*(uint16_t *)(buffer + 4));
+  //SeqNo2 = ntohs(*(uint32_t *)(buffer + 8226));
+  SeqNo1 = ntohl(*(uint32_t *)(buffer + id_offset));
+  //SeqNo2 = ntohs(*(uint16_t *)(buffer + 4));
+  SeqNo2 = ntohl(*(uint32_t *)(buffer + id_offset));
 
+  printf("S1, S2, %i, %i", SeqNo1, SeqNo2);
   //assert(ReadSize1 == ReadSize2);
 
   for (;;) {
@@ -99,44 +111,34 @@ start_over:
     assert(ReadSize == Settings.DataSize);
 
     if (ReadSize > 0) {
-      SeqNo = ntohs(*(uint16_t *)(buffer + 4));
+      //SeqNo = ntohs(*(uint16_t *)(buffer + 4));
+      //SeqNo = ntohs(*(uint32_t *)(buffer + 8224));
+      SeqNo = ntohl(*(uint32_t *)(buffer + id_offset));
       RxBytes += ReadSize;
-      //printf("SeqNo: %i %i\n", SeqNo, (0-49999)%49998);
     }
 
 
     //printf("seqno %i %i \n", SeqNo, SeqNo2);
     //
     status_before = SeqNo2 - SeqNo1;
-    switch(status_before) {
-        case 0: 
-            if (!((SeqNo - SeqNo2)  == 1 || (SeqNo - SeqNo2) == -49999))  {
-                printf("1 sequence is not continuous: SeqNo %i %i %i, start over \n", SeqNo1, SeqNo2, SeqNo);
-                disc_cnt ++;
-
-                if (RxPackets < 500)
-                    goto start_over;
-
-                lost_p ++;
-                bad_block = true;
-                exit(1);
-            }
+    status_now = SeqNo - SeqNo2;
+    switch(status_now) {
+        case 1: 
+        case 4:
             break;
-
-        case 1:
-        case -49999:
-            //printf("seqno %i %i", SeqNo, SeqNo2);
-            //assert(((SeqNo - SeqNo2) % 2 ) == 0) ;
-            if(!(((SeqNo - SeqNo2) % 2 ) == 0)) {
-                printf("2 sequence is not continuous: SeqNo %i %i %i, start over \n", SeqNo1, SeqNo2, SeqNo);
-                disc_cnt ++;
-                if (RxPackets < 500)
-                    goto start_over;
-                lost_p ++;
-                bad_block = true;
-                exit(1);
-            }
+        case -cycle:
+            printf("cycle sequence is not continuous: SeqNo %i %i %i, start over \n", SeqNo1, SeqNo2, SeqNo);
             break;
+        default:
+            printf("2 sequence is not continuous: SeqNo %i %i %i, start over \n", SeqNo1, SeqNo2, SeqNo);
+            auto end = chrono::steady_clock::now();
+            printf("time %f \n",  end-start);
+            //disc_cnt ++;
+            //if (RxPackets < 500)
+                //goto start_over;
+            lost_p ++;
+            bad_block = true;
+                //exit(1);
     }
 
 
@@ -177,10 +179,10 @@ start_over:
 
     if (USecs >= intervalUs) {
       RxBytesTotal += RxBytes;
-      printf("Rx rate: %.2f Mbps, rx %" PRIu64 " MB (total: %" PRIu64
-             " MB) %" PRIu64 " usecs, lost %i ps of total %i \n",
-             RxBytes * 8.0 / (USecs / 1000000.0) / B1M, RxBytes / B1M, RxBytesTotal / B1M,
-             USecs, lost_p, RxPackets);
+      //printf("Rx rate: %.2f Mbps, rx %" PRIu64 " MB (total: %" PRIu64
+             //" MB) %" PRIu64 " usecs, lost %i ps of total %i \n",
+             //RxBytes * 8.0 / (USecs / 1000000.0) / B1M, RxBytes / B1M, RxBytesTotal / B1M,
+             //USecs, lost_p, RxPackets);
       RxBytes = 0;
       UpdateTimer.now();
       USecs = UpdateTimer.timeus();
