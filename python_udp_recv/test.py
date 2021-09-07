@@ -39,7 +39,7 @@ udp_ip = "192.168.90.100"
 udp_port = 60000
 
 # cycle = 49999
-cycle = 2 ** 32
+cycle = 99999
 save_per_file = 1000
 loop_file=True
 output_fft = True
@@ -179,6 +179,8 @@ if __name__ == '__main__':
 
         id_head_before = id_arr[0]
         id_tail_before = id_arr[-1]
+
+        # print("maxid: ", id_arr.max())
 
         id_offsets = np.diff(id_arr) % cycle
 
