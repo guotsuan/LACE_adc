@@ -40,6 +40,7 @@ udp_port = 60000
 
 # cycle = 49999
 cycle = 65535
+# cycle = 99999
 save_per_file = 1000
 loop_file=True
 output_fft = True
@@ -60,19 +61,21 @@ sock.bind((udp_ip, udp_port))
 
 count = 1000
 
-payload_size = 8200
-data_size = payload_size - 8
+payload_size = 8192
+data_size = payload_size 
 header_size = 28
-id_size = 4
+id_size = 2
 packet_size = payload_size + header_size
 
 udp_payload = bytearray(count*payload_size)
 udp_data = bytearray(count*data_size)
 udp_id = bytearray(count*id_size)
+packet = bytearray(count*packet_size)
 
 payload_buff = memoryview(udp_payload)
 data_buff = memoryview(udp_data)
 id_buff = memoryview(udp_id)
+p_buff = memoryview(packet)
 
 
 num_lost_all = 0.0
@@ -116,19 +119,20 @@ if __name__ == '__main__':
     id_tail_before = 0
 
     cout_down = 100
-    warmup_data = bytearray(payload_size)
+    warmup_data = bytearray(packet_size)
     warmup_buff = memoryview(warmup_data)
 
     # get 100 smaples for nothing
     while cout_down:
-        sock.recv_into(warmup_buff, payload_size)
+        sock.recv_into(warmup_buff, packet_size)
         cout_down -= 1
 
 
-    id_tail_before = int.from_bytes(warmup_data[payload_size -4:payload_size], 
+    id_tail_before = int.from_bytes(warmup_data[4:6], 
             'big')
     
     print("finsih warmup: with last data seqNo: ", id_tail_before)
+    # sys.exit()
     
     i = 0
     file_cnt = 0
@@ -155,10 +159,9 @@ if __name__ == '__main__':
         payload_buff = payload_buff_head
         t1_time = time.time()
         while count_down:
-            sock.recv_into(payload_buff, payload_size)
-            data_buff[pi1:pi2] = payload_buff[0:data_size]
-            id_buff[hi1:hi2] = payload_buff[payload_size-id_size:payload_size]
-            payload_buff = payload_buff[payload_size:]
+            sock.recv_into(p_buff, packet_size)
+            data_buff[pi1:pi2] = p_buff[28:packet_size]
+            id_buff[hi1:hi2] = p_buff[4:6]
 
             pi1 += data_size
             pi2 += data_size
@@ -167,8 +170,9 @@ if __name__ == '__main__':
 
             count_down -= 1
 
-        id_arr = np.uint16(np.frombuffer(udp_id,dtype='>u4'))
-        sys.exit()
+        id_arr = np.int32(np.frombuffer(udp_id,dtype='>u2'))
+
+        # sys.exit()
 
         if id_arr[0] - id_tail_before == 1:
             pass
