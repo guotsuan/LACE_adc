@@ -21,7 +21,7 @@ udp_port = 60000
 
 cycle = 49999
 
-count = 90000
+count = 10
 sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 # sock = socket.socket(socket.AF_INET,  socket.SOCK_RAW, socket.IPPROTO_UDP)
 sock.bind((udp_ip, udp_port))
@@ -49,6 +49,6 @@ while count:
     # print(np.frombuffer(load_buff[8198:8220], '>u2'))
     count -= 1
 
-print(maxid)
-t2 = time.perf_counter()
-print(t2-t1)
+# print(maxid)
+# t2 = time.perf_counter()
+# print(t2-t1)
