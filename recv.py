@@ -42,11 +42,11 @@ packet_size = payload_size + header_size
 
 udp_packet = bytearray(count*packet_size)
 udp_payload = bytearray(count*(packet_size - header_size))
-udp_header_id = bytearray(count*2)
+udp_id = bytearray(count*2)
 
 packet_buff = memoryview(udp_packet)
 load_buff = memoryview(udp_payload)
-header_buff = memoryview(udp_header_id)
+id_buff = memoryview(udp_id)
 
 pi1 = 0
 pi2 = payload_size
@@ -58,8 +58,8 @@ count_down = count
 
 while count_down:
     sock.recvfrom_into(packet_buff, packet_size)
-    load_buff[pi1:pi2] = packet_buff[header_size:packet_size]
-    header_buff[hi1:hi2] = packet_buff[4:6]
+    load_buff[pi1:pi2] = packet_buff[0:payload_size]
+    id_buff[hi1:hi2] = packet_buff[4:6]
     packet_buff = packet_buff[packet_size:]
 
     pi1 += payload_size
