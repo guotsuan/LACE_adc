@@ -32,7 +32,7 @@ f = 32000
 # Amplitude,  maxium is +0.5/-0.5
 amp = 0.5
 max_amp = 0.5
-scale = (2**15-1) * amp / max_map 
+scale = (2**15-1) * amp / max_amp 
 sample_rate = 819200
 
 
