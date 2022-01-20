@@ -206,7 +206,7 @@ if __name__ == '__main__':
 
             print(f"block loop time: {time_now - time_before:.3f},", \
                     " lost_packet:", num_lost_all, \
-                    num_lost_all/i/block_size, \
+                    num_lost_all/(i+1)/block_size, \
                     f"already run: {time_now - s_time:.3f}")
 
             print("The speed of acquaring data: " +

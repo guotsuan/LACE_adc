@@ -7,9 +7,9 @@
 #
 
 dev="enp119s0f0"
-#addr="24:5e:be:59:8d:46"
+addr="24:5e:be:59:8d:46"
 #addr="00:1b:21:bb:d0:ac"
-addr="00:1b:21:85:6e:a1"
+#addr="00:1b:21:85:6e:a1"
 
 if [[ $OSTYPE == 'darwin'* ]]; then
   sudo ifconfig en9 ether $addr
