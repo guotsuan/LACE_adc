@@ -9,6 +9,7 @@
 """
 the parameters for recv.py
 """
+import platform as pf
 
 # Neworking settings for reciever and data storage
 
@@ -20,14 +21,15 @@ src_ip = ["192.168.90.20", "192.168.90.21", "192.168.90.30", "192.168.90.31"]
 
 src_port = [59000, 59001, 59000, 59001]
 
-dst_mac = ["24:5e:be:59:8d:46", "24:5e:be:59:8d:46", "14:02:ec:76:60:45", \
-        "14:02:ec:76:60:45"]
+dst_mac = ["24:5e:be:68:55:6e", "24:5e:be:68:55:6e", \
+           "24:5e:be:59:8d:46", "24:5e:be:59:8d:46"]
 
 dst_port = [60000, 60001, 60000, 60001]
 
 dst_ip = ["192.168.90.100", "192.168.90.100", "192.168.90.101", "192.168.90.101"]
 
 network_faces = ["enp119s0f0", "enp119s0f0","enp119s0f1", "enp119s0f1"]
+network_faces = ["en7", "en7", "en7", "en7"]
 
 labels = ["RAW output1", "FFT output1", "RAW output2", "FFT output2"]
 
@@ -38,8 +40,6 @@ fft2 = 3
 
 # raw1, fft1, raw2, fft2
 output_type = raw1
-
-
 
 src_udp_ip = src_ip[output_type]
 src_udp_port = src_port[output_type]
@@ -62,7 +62,11 @@ save_hdf5 = False
 
 # the size of socket buffer for recieving data
 # maximum is 1610612736
-rx_buffer = 1073741824
+platform_system = pf.system()
+if 'Darwin' in platform_system:
+    rx_buffer = 7168000
+else:
+    rx_buffer = 1073741824
 
 # How many packets of data accumulated before saving
 counts_to_save = 1000

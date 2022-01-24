@@ -13,10 +13,10 @@ import socket
 import time
 import numpy as np
 
-src_udp_ip = "192.168.90.20"
+src_udp_ip = "192.168.90.30"
 src_udp_port = 59000
 
-udp_ip = "192.168.90.100"
+udp_ip = "192.168.90.101"
 udp_port = 60000
 
 cycle = 49999
@@ -52,3 +52,4 @@ while count:
 # print(maxid)
 # t2 = time.perf_counter()
 # print(t2-t1)
+sock.close()

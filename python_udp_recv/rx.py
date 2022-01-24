@@ -25,15 +25,15 @@ import termios, fcntl
 from params import *
 from rx_helper import dumpdata
 
-fd = sys.stdin.fileno()
+# fd = sys.stdin.fileno()
 
-oldterm = termios.tcgetattr(fd)
-newattr = termios.tcgetattr(fd)
-newattr[3] = newattr[3] & ~termios.ICANON & ~termios.ECHO
-termios.tcsetattr(fd, termios.TCSANOW, newattr)
+# oldterm = termios.tcgetattr(fd)
+# newattr = termios.tcgetattr(fd)
+# newattr[3] = newattr[3] & ~termios.ICANON & ~termios.ECHO
+# termios.tcsetattr(fd, termios.TCSANOW, newattr)
 
-oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
-fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
+# oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
+# fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
 
 # cycle = 49999
@@ -45,7 +45,7 @@ max_id = 0
 # length of ID (bytes)
 id_size = 4
 
-# seprator size 
+# seprator size
 sep_size = 4
 payload_size = 8200
 data_size = payload_size - id_size - sep_size
@@ -54,13 +54,16 @@ block_size = 1024
 
 num_lost_all = 0.0
 
+print("Receiving IP and Port: ", udp_ip, udp_port)
 sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+sock.bind((udp_ip, udp_port))
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
 
 if err:
+    sock.close()
     raise ValueError("set socket error")
 
-sock.bind((udp_ip, udp_port))
+
 
 udp_payload = bytearray(counts_to_save*payload_size)
 udp_data = bytearray(counts_to_save*data_size)
@@ -74,7 +77,8 @@ id_buff = memoryview(udp_id)
 if __name__ == '__main__':
     # Warm up the system....
     # Drop the some data packets to avoid unstable
-    
+
+    print("Starting....")
     payload_buff_head = payload_buff
 
     id_head_before = 0
@@ -94,8 +98,8 @@ if __name__ == '__main__':
 
     id_tail_before = int.from_bytes(warmup_data[payload_size-id_size:
         payload_size], 'big')
-    
-    print("finsih warmup: with last data seqNo: ", id_tail_before, 
+
+    print("finsih warmup: with last data seqNo: ", id_tail_before,
             tmp_id % block_size)
 
     i = 0
@@ -106,12 +110,12 @@ if __name__ == '__main__':
     c_time = time.time()
 
     while forever:
-        try:
-            c = sys.stdin.read(1)
-            if c =='x':
-                print("program will stop on given order")
-                forever = False
-        except IOError: pass
+        # try:
+            # c = sys.stdin.read(1)
+            # if c =='x':
+                # print("program will stop on given order")
+                # forever = False
+        # except IOError: pass
 
         pi1 = 0
         pi2 = data_size
@@ -171,7 +175,7 @@ if __name__ == '__main__':
 
 
         # print("--- %s seconds ---" % (time.time() - start_time))
-        
+
         # FIXME: how to export data
 
         if loop_file:
@@ -181,9 +185,9 @@ if __name__ == '__main__':
         if i % 100 ==0 and no_lost :
             fout = './out_' + str(k) + '.npy'
             nsample = payload_size * counts_to_save
-            writefile = Process(target=dumpdata,
-                    args=(fout,udp_payload_arr, c_time, t1_time, nsample, False))
-            writefile.start()
+            # writefile = Process(target=dumpdata,
+                    # args=(fout,udp_payload_arr, c_time, t1_time, nsample, False))
+            # writefile.start()
             file_cnt += 1
 
             print(f"{num_lost_p} packet lost, \
@@ -198,8 +202,8 @@ if __name__ == '__main__':
         if i % 100 == 0:
 
             sample_rate = 480e6
-            size_of_data_per_sec = sample_rate * 2 
-            acq_data_size = counts_to_save * payload_size 
+            size_of_data_per_sec = sample_rate * 2
+            acq_data_size = counts_to_save * payload_size
             duration  = acq_data_size / size_of_data_per_sec * 1.0
 
             acq_time = time_now - time_before

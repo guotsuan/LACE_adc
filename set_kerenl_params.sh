@@ -7,7 +7,8 @@
 #
 
 if [[ $OSTYPE == 'darwin'* ]]; then
-  sudo sysctl -w net.inet.udp.recvspace=1073741824
+  # mac pro MAX, maxspace=7168000
+  sudo sysctl -w net.inet.udp.recvspace=7168000
 fi
 
 if [[ $OSTYPE == 'linux'* ]]; then
