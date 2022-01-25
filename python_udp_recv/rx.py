@@ -23,21 +23,12 @@ import termios, fcntl
 
 # put all configrable parameters in params.py
 from params import *
-from rx_helper import dumpdata
-
-# fd = sys.stdin.fileno()
-
-# oldterm = termios.tcgetattr(fd)
-# newattr = termios.tcgetattr(fd)
-# newattr[3] = newattr[3] & ~termios.ICANON & ~termios.ECHO
-# termios.tcsetattr(fd, termios.TCSANOW, newattr)
-
-# oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
-# fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
+from rx_helper import dumpdata,set_noblocking_keyboard
 
 
-# cycle = 49999
-# cycle = 99999
+# set the input of keyboard no-blocking
+set_noblocking_keyboard()
+
 # the period of the consecutive ID is 2**32 - 1 = 4294967295
 cycle = 4294967295
 max_id = 0
@@ -54,15 +45,15 @@ block_size = 1024
 
 num_lost_all = 0.0
 
-print("Receiving IP and Port: ", udp_ip, udp_port)
 sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-sock.bind((udp_ip, udp_port))
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
 
 if err:
     sock.close()
     raise ValueError("set socket error")
 
+print("Receiving IP and Port: ", udp_ip, udp_port, "Binding...")
+sock.bind((udp_ip, udp_port))
 
 
 udp_payload = bytearray(counts_to_save*payload_size)
@@ -84,13 +75,15 @@ if __name__ == '__main__':
     id_head_before = 0
     id_tail_before = 0
 
-    # cout_down = 100
     warmup_data = bytearray(payload_size)
     warmup_buff = memoryview(warmup_data)
 
     tmp_id = 0
 
-    # get 100 smaples for nothing
+    print("Warming Up....")
+    # Wait until the SeqNo is 1023 to start collect data, which is easy
+    # to drap the data frames if one of them are lost in the transfering.
+
     while tmp_id % block_size !=1023:
         sock.recv_into(warmup_buff, payload_size)
         tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
@@ -99,7 +92,7 @@ if __name__ == '__main__':
     id_tail_before = int.from_bytes(warmup_data[payload_size-id_size:
         payload_size], 'big')
 
-    print("finsih warmup: with last data seqNo: ", id_tail_before,
+    print("Warmup finished with last data seqNo: ", id_tail_before,
             tmp_id % block_size)
 
     i = 0
@@ -110,12 +103,12 @@ if __name__ == '__main__':
     c_time = time.time()
 
     while forever:
-        # try:
-            # c = sys.stdin.read(1)
-            # if c =='x':
-                # print("program will stop on given order")
-                # forever = False
-        # except IOError: pass
+        try:
+            c = sys.stdin.read(1)
+            if c =='x':
+                print("program will stop on given order")
+                forever = False
+        except IOError: pass
 
         pi1 = 0
         pi2 = data_size
@@ -185,13 +178,17 @@ if __name__ == '__main__':
         if i % 100 ==0 and no_lost :
             fout = './out_' + str(k) + '.npy'
             nsample = payload_size * counts_to_save
-            # writefile = Process(target=dumpdata,
-                    # args=(fout,udp_payload_arr, c_time, t1_time, nsample, False))
-            # writefile.start()
+            if 'Darwin' not in platform_system:
+                writefile = Process(target=dumpdata,
+                        args=(fout,udp_payload_arr, c_time, t1_time, nsample, False))
+                writefile.start()
+            else:
+                # dumpdata(fout, udp_payload_arr, c_time, t1_time, nsample, False)
+                pass
             file_cnt += 1
 
-            print(f"{num_lost_p} packet lost, \
-                    {num_lost_p/counts_to_save * 100}% of packets lost.")
+            # print(f"{num_lost_p} packet lost, \
+                    # {num_lost_p/counts_to_save * 100}% of packets lost.")
 
         if no_lost:
             i += 1
@@ -214,7 +211,7 @@ if __name__ == '__main__':
                     f"already run: {time_now - s_time:.3f}")
 
             print("The speed of acquaring data: " +
-                    f'{acq_data_size/1024/1024/acq_time:.3f} MB/s')
+                    f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
         time_before = time_now
 
 

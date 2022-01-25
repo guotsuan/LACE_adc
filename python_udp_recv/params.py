@@ -69,7 +69,7 @@ else:
     rx_buffer = 1073741824
 
 # How many packets of data accumulated before saving
-counts_to_save = 1000
+counts_to_save = 1024
 
 # the rx program runing forever ?
 forever = True
