@@ -28,12 +28,16 @@ timeout = 1
 
 
 
-for sip, sport, dip, dport, nic, dmac, lb in zip(src_ip, src_port, dst_ip, 
+for sip, sport, dip, dport, nic, dmac, lb in zip(src_ip, src_port, dst_ip,
         dst_port, network_faces, dst_mac, labels):
 
-    print("Checking: ",lb) 
-    p = sniff(count=1, iface=nic, filter="udp and host " + sip ,
-            timeout=timeout)
+    print("Checking: ", bcolors.UNDERLINE + lb + bcolors.ENDC)
+    if 'Darwin' in platform_system:
+        # filter option does not working in mac M1
+        p = sniff(count=1, iface=nic, timeout=timeout)
+    else:
+        p = sniff(count=1, iface=nic, filter="udp and host " + sip ,
+                timeout=timeout)
     if p:
         p.nsummary()
         ok = True
@@ -61,7 +65,9 @@ for sip, sport, dip, dport, nic, dmac, lb in zip(src_ip, src_port, dst_ip,
             ok=False
 
         if ok:
-            print (lb + " seems ok.....")
+            print (lb + " seems " + bcolors.OKGREEN + "ok....." + bcolors.ENDC)
+        else:
+            print (lb + bcolors.FAIL + " seems failed....." + bcolors.ENDC)
 
         print("\n")
 

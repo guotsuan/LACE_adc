@@ -20,8 +20,9 @@
 using namespace std;
 struct {
   int UDPPort{60000};
-  int DataSize{8220};
-  int SocketBufferSize{1073741824};
+  int DataSize{8200};
+  //int SocketBufferSize{1073741824};
+  int SocketBufferSize{7168000};
 
 } Settings;
 
@@ -77,14 +78,14 @@ int main(int argc, char *argv[]) {
   Timer UpdateTimer;
   auto USecs = UpdateTimer.timeus();
 
-  //auto start = chrono::steady_clock::now();
+  auto start = chrono::steady_clock::now();
   UDPReceiver Receive(local);
   Receive.setBufferSizes(Settings.SocketBufferSize, Settings.SocketBufferSize);
   Receive.printBufferSizes();
 
 start_over:
   RxBytesTotal = 0;
-  RxPackets = 0;
+  RxPackets = UINT64_C(0);
 
   for (int i;i<block_size;i++) {
       int ReadSize1 = Receive.receive(buffer, BUFFERSIZE);
@@ -109,6 +110,7 @@ start_over:
 
     assert(ReadSize > 0);
     assert(ReadSize == Settings.DataSize);
+    
 
     if (ReadSize > 0) {
       //SeqNo = ntohs(*(uint16_t *)(buffer + 4));
@@ -146,30 +148,30 @@ start_over:
     SeqNo2 = SeqNo;
    
     //auto start = chrono::steady_clock::now();
-    //if ((RxPackets) % block_size == 0) {
-        //if (loop_files)
-            //filenum = filenum % 5;
-        //write_cnt = 0;
-        //file_p = 0;
-        //out.open("/dev/shm/temp_" + std::to_string(filenum), 
-                //std::ofstream::binary|std::ofstream::trunc);
-    //}
+    if ((RxPackets) % block_size == 0) {
+        if (loop_files)
+            filenum = filenum % 5;
+        write_cnt = 0;
+        file_p = 0;
+        out.open("output_" + std::to_string(filenum), 
+                std::ofstream::binary|std::ofstream::trunc);
+    }
 
 
-    //if (out.is_open()) {
-        //out.seekp(file_p);
-        //out.write(buffer, load_size);
-        ////out.flush();  is no obviously helpful
-        //file_p += load_size;
-        //write_cnt++;
-    //}
+    if (out.is_open()) {
+        out.seekp(file_p);
+        out.write(buffer, load_size);
+        //out.flush();  is no obviously helpful
+        file_p += load_size;
+        write_cnt++;
+    }
 
 
-    //if (write_cnt == block_size && out.is_open()) {
-        //out.close();
-        //if (!(skippable && bad_block))
-            //filenum += 1;
-    //}
+    if (write_cnt == block_size && out.is_open()) {
+        out.close();
+        if (!(skippable && bad_block))
+            filenum += 1;
+    }
 
     //auto end = chrono::steady_clock::now();
 
@@ -177,18 +179,18 @@ start_over:
     if ((RxPackets % 100) == 0)
       USecs = UpdateTimer.timeus();
 
-    if (USecs >= intervalUs) {
-      RxBytesTotal += RxBytes;
+    //if (USecs >= intervalUs) {
+      //RxBytesTotal += RxBytes;
       //printf("Rx rate: %.2f Mbps, rx %" PRIu64 " MB (total: %" PRIu64
-             //" MB) %" PRIu64 " usecs, lost %i ps of total %i \n",
+             //" MB) %" PRIu64 " usecs, lost %" PRIu64 " ps of total %" PRIu64 " \n",
              //RxBytes * 8.0 / (USecs / 1000000.0) / B1M, RxBytes / B1M, RxBytesTotal / B1M,
              //USecs, lost_p, RxPackets);
-      RxBytes = 0;
-      UpdateTimer.now();
-      USecs = UpdateTimer.timeus();
-    }
+      //RxBytes = 0;
+      //UpdateTimer.now();
+      //USecs = UpdateTimer.timeus();
+    //}
 
-  if (ReadSize > 0) RxPackets++;
+  if (ReadSize > 0) RxPackets += UINT64_C(1);
 
   if (disc_cnt > 10) {
       printf("You have a broken heart, check your code again! \n");

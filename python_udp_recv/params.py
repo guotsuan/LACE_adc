@@ -28,8 +28,11 @@ dst_port = [60000, 60001, 60000, 60001]
 
 dst_ip = ["192.168.90.100", "192.168.90.100", "192.168.90.101", "192.168.90.101"]
 
-network_faces = ["enp119s0f0", "enp119s0f0","enp119s0f1", "enp119s0f1"]
-network_faces = ["en7", "en7", "en7", "en7"]
+platform_system = pf.system()
+if 'Darwin' in platform_system:
+    network_faces = ["en7", "en7", "en8", "en8"]
+else:
+    network_faces = ["enp119s0f0", "enp119s0f0","enp119s0f1", "enp119s0f1"]
 
 labels = ["RAW output1", "FFT output1", "RAW output2", "FFT output2"]
 
@@ -62,7 +65,6 @@ save_hdf5 = False
 
 # the size of socket buffer for recieving data
 # maximum is 1610612736
-platform_system = pf.system()
 if 'Darwin' in platform_system:
     rx_buffer = 7168000
 else:
@@ -73,3 +75,14 @@ counts_to_save = 1024
 
 # the rx program runing forever ?
 forever = True
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
