@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # vim:fenc=utf-8
 #
-# Copyright © 2021 gq <gq@gqhp>
+# Copyright ÃÂÃÂ© 2021 gq <gq@gqhp>
 #
 # Distributed under terms of the MIT license.
 
@@ -10,6 +10,7 @@
 the parameters for recv.py
 """
 import platform as pf
+import os
 
 # Neworking settings for reciever and data storage
 
@@ -17,12 +18,19 @@ import platform as pf
 #  Output 1 and Output 2  #
 ###########################
 
+# array in the order "RAW1, FFT1, RAW2, FFT2"
+
 src_ip = ["192.168.90.20", "192.168.90.21", "192.168.90.30", "192.168.90.31"]
 
 src_port = [59000, 59001, 59000, 59001]
 
+dst_mac_list =  ["6c:b3:11:07:93:18", "6c:b3:11:07:93:1a"] 
+
 dst_mac = ["24:5e:be:68:55:6e", "24:5e:be:68:55:6e", \
            "24:5e:be:59:8d:46", "24:5e:be:59:8d:46"]
+# TWIN 10G SFP+ Sonnet
+dst_mac =  ["6c:b3:11:07:93:18", "6c:b3:11:07:93:18", \
+            "6c:b3:11:07:93:1a", "6c:b3:11:07:93:1a"] 
 
 dst_port = [60000, 60001, 60000, 60001]
 
@@ -32,7 +40,12 @@ platform_system = pf.system()
 if 'Darwin' in platform_system:
     network_faces = ["en7", "en7", "en8", "en8"]
 else:
-    network_faces = ["enp119s0f0", "enp119s0f0","enp119s0f1", "enp119s0f1"]
+    node_name = pf.node()
+    if node_name == 'lacebian1':
+        network_faces = ["enp10s0f0", "enp10s0f0","enp10s0f1", "enp10s0f1"]
+        #network_faces = ["enp10s0", "enp10s0","enp10s0f1", "enp10s0f1"]
+    else:
+       network_faces = ["enp119s0f0", "enp119s0f0","enp119s0f1", "enp119s0f1"]
 
 labels = ["RAW output1", "FFT output1", "RAW output2", "FFT output2"]
 
