@@ -32,6 +32,16 @@ dst_mac = ["24:5e:be:68:55:6e", "24:5e:be:68:55:6e", \
 dst_mac =  ["6c:b3:11:07:93:18", "6c:b3:11:07:93:18", \
             "6c:b3:11:07:93:1a", "6c:b3:11:07:93:1a"] 
 
+# Intel X710
+
+dst_mac =  ["14:02:ec:76:60:44", "14:02:ec:76:60:44", \
+            "3c:fd:fe:c2:44:09", "3c:fd:fe:c2:44:09"] 
+
+# HP Intel X520
+
+dst_mac =  ["14:02:ec:76:60:44", "14:02:ec:76:60:44", \
+            "14:02:ec:76:60:45", "14:02:ec:76:60:45"] 
+
 dst_port = [60000, 60001, 60000, 60001]
 
 dst_ip = ["192.168.90.100", "192.168.90.100", "192.168.90.101", "192.168.90.101"]
@@ -44,6 +54,8 @@ else:
     if node_name == 'lacebian1':
         network_faces = ["enp10s0f0", "enp10s0f0","enp10s0f1", "enp10s0f1"]
         #network_faces = ["enp10s0", "enp10s0","enp10s0f1", "enp10s0f1"]
+    elif node_name == "gqhp":
+        network_faces = ["enp153s0f0", "enp153s0f0", "enp153s0f1", "enp153s0f1"]
     else:
        network_faces = ["enp119s0f0", "enp119s0f0","enp119s0f1", "enp119s0f1"]
 
@@ -81,7 +93,7 @@ save_hdf5 = False
 if 'Darwin' in platform_system:
     rx_buffer = 7168000
 else:
-    rx_buffer = 1073741824
+    rx_buffer = 1610612736
 
 # How many packets of data accumulated before saving
 counts_to_save = 1024
