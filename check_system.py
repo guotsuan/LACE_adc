@@ -11,6 +11,9 @@ Checking the whole system requirment
 """
 
 import subprocess
+import shlex
+import getpass
+
 from subprocess import Popen
 
 from python_udp_recv.params import bcolors
@@ -51,6 +54,7 @@ for kp, v in zip(kernels_params, kernels_presults):
 
 
 # Checking The Receiver output....
+subprocess.call(shlex.split('sudo id -nu'))
 print ("Checinkg output....\n")
 check_output()
 

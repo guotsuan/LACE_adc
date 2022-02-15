@@ -10,6 +10,7 @@
 the parameters for recv.py
 """
 import platform as pf
+import netifaces
 import os
 
 # Neworking settings for reciever and data storage
@@ -24,23 +25,6 @@ src_ip = ["192.168.90.20", "192.168.90.21", "192.168.90.30", "192.168.90.31"]
 
 src_port = [59000, 59001, 59000, 59001]
 
-dst_mac_list =  ["6c:b3:11:07:93:18", "6c:b3:11:07:93:1a"] 
-
-dst_mac = ["24:5e:be:68:55:6e", "24:5e:be:68:55:6e", \
-           "24:5e:be:59:8d:46", "24:5e:be:59:8d:46"]
-# TWIN 10G SFP+ Sonnet
-dst_mac =  ["6c:b3:11:07:93:18", "6c:b3:11:07:93:18", \
-            "6c:b3:11:07:93:1a", "6c:b3:11:07:93:1a"] 
-
-# Intel X710
-
-dst_mac =  ["14:02:ec:76:60:44", "14:02:ec:76:60:44", \
-            "3c:fd:fe:c2:44:09", "3c:fd:fe:c2:44:09"] 
-
-# HP Intel X520
-
-dst_mac =  ["14:02:ec:76:60:44", "14:02:ec:76:60:44", \
-            "14:02:ec:76:60:45", "14:02:ec:76:60:45"] 
 
 dst_port = [60000, 60001, 60000, 60001]
 
@@ -59,6 +43,32 @@ else:
     else:
        network_faces = ["enp119s0f0", "enp119s0f0","enp119s0f1", "enp119s0f1"]
 
+dst_mac = [] 
+for nic in network_faces:
+    addrs = netifaces.ifaddresses(nic)
+    dst_mac.append(addrs[netifaces.AF_LINK][0]['addr'])
+
+print("get MAC address for NICs:")
+print(dst_mac)
+
+
+dst_mac = ["24:5e:be:68:55:6e", "24:5e:be:68:55:6e", \
+           "24:5e:be:59:8d:46", "24:5e:be:59:8d:46"]
+# TWIN 10G SFP+ Sonnet
+dst_mac =  ["6c:b3:11:07:93:18", "6c:b3:11:07:93:18", \
+            "6c:b3:11:07:93:1a", "6c:b3:11:07:93:1a"] 
+
+# Intel X710
+
+dst_mac =  ["14:02:ec:76:60:44", "14:02:ec:76:60:44", \
+            "3c:fd:fe:c2:44:09", "3c:fd:fe:c2:44:09"] 
+
+# HP Intel X520
+
+dst_mac =  ["14:02:ec:76:60:44", "14:02:ec:76:60:44", \
+            "14:02:ec:76:60:45", "14:02:ec:76:60:45"] 
+
+# do not change
 labels = ["RAW output1", "FFT output1", "RAW output2", "FFT output2"]
 
 raw1 = 0
