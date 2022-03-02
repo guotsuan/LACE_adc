@@ -16,6 +16,7 @@ from params import *
 from fft_helper import fft_to_dBm
 import matplotlib.pyplot as plt
 from numpy.fft import fft,rfft,rfftfreq,fftfreq
+from rx_helper import epoctime2date
 import sys
 
 data_dir = './'
@@ -23,7 +24,7 @@ data_dir = './'
 data_size = 8192
 cycle = 4294967295
 
-file_stop_num = 8
+file_stop_num = 50
 
 id_arr = np.zeros((2, file_stop_num, counts_to_save), dtype=np.uint32)
 voltage_arr = np.zeros((2, file_stop_num, counts_to_save*data_size//2), dtype=np.float32)
@@ -43,7 +44,7 @@ for j,t in enumerate(output_type):
         fout = 'data/' +labels[t] + '_' + str(i) + '.h5'
         x = h5.File(fout, 'r')
         vol = x['voltage'][...] * scale_fs[t]
-        print("starttime: ", i, x['voltage'].attrs["start_time"])
+        print("starttime: ", i, epoctime2date(x['voltage'].attrs["offset_time"], utc=False))
         frame_id = x['frame_id'][...]
         id_arr[j,i,:] = frame_id
 

@@ -86,7 +86,9 @@ counts_to_save = 2048
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-file_stop_num = 50
+# file_stop_num = 50
+file_stop_num = -1
+save_lost = True
 
 
 class bcolors:

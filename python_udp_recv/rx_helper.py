@@ -13,7 +13,42 @@ import numpy as np
 import h5py as h5
 import sys
 import os
+import datetime, time
 import termios, fcntl
+
+def prepare_folder(indir):
+    isdir = os.path.isdir(indir)
+    if isdir:
+        files = os.listdir(indir)
+        if len(files) != 0:
+            raise ValueError(indir + ' is not empty')
+            
+    else:
+        os.mkdir(indir)
+
+
+def data_file_prefix(indir, stime):
+    dt = datetime.datetime.utcfromtimestamp(time.time())
+    folder_level1 = dt.strftime("%Y-%m-%d")
+    folder_level2 = dt.strftime("%H")
+    folder_level3 = dt.strftime("%M")
+    full_path = os.path.join(indir, folder_level1, folder_level2, folder_level3)
+    
+    if not os.path.exists(full_path):
+        os.makedirs(full_path)
+
+    return full_path
+
+
+
+
+def epoctime2date(etime, utc=True):
+    import datetime
+
+    if utc:
+        return datetime.datetime.utcfromtimestamp(etime).isoformat() + ' UTC'
+    else:
+        return datetime.datetime.fromtimestamp(etime).isoformat()
 
 
 def set_noblocking_keyboard():
@@ -28,15 +63,14 @@ def set_noblocking_keyboard():
     oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
-def dumpdata(file_name, data, id_data, stime, t1, ns, save_hdf5=False, header=None):
+def dumpdata(file_name, data, id_data, stime, t1, nb, save_hdf5=False, header=None):
 
     if save_hdf5:
         f=h5.File(file_name,'w')
         dset = f.create_dataset('voltage', data=data)
         dset.attrs['start_time'] = stime
-        dset.attrs['unit'] = 'V'
-        dset.attrs['offset_time'] = t1
-        dset.attrs['nsample'] = t1
+        dset.attrs['block_time'] = t1
+        dset.attrs['n_broken'] = nb 
         dset = f.create_dataset('frame_id', data=id_data)
         f.close()
     else:

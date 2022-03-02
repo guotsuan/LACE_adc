@@ -14,6 +14,7 @@ import socket
 import sys
 import os
 import time
+import datetime
 import threading
 from multiprocessing import Process
 
@@ -21,20 +22,28 @@ import h5py as h5
 import numpy as np
 import termios, fcntl
 
+
 # put all configrable parameters in params.py
 from params import *
-from rx_helper import dumpdata,set_noblocking_keyboard
+from rx_helper import dumpdata,set_noblocking_keyboard,prepare_folder,\
+        data_file_prefix
 
 
+data_dir = ''
 
-if len(sys.argv) == 1:
-    print("recieving output type: ", labels[output_type])
-elif len(sys.argv) >= 2:
+
+args_len = len(sys.argv)
+if args_len < 3:
+    print("python rx.py <rx_type> <data_dir> ")
+    sys.exit()
+
+elif args_len == 3:
     try:
         args = sys.argv[1].split()
         input_type = int(args[0])
+
+        data_dir = sys.argv[2]
         output_type = input_type
-        print("input: ", input_type)
     except:
         print("input type must be one of 0,1,2,3")
 
@@ -42,7 +51,14 @@ elif len(sys.argv) >= 2:
         print("input type", input_type, " must be one of 0,1,2,3")
         sys.exit()
     else:
-        print("recieving output type from input: ", labels[output_type], "\n")
+        print("recieving output type from input: ", labels[output_type])
+        print("saving into the folder: ", data_dir)
+
+
+if data_dir == '':
+    sys.exit("data directory has not been specified")
+else:
+    prepare_folder(data_dir)
 
 
 src_udp_ip = src_ip[output_type]
@@ -136,8 +152,9 @@ if __name__ == '__main__':
 
     s_time = time.perf_counter()
     time_before = s_time
-    c_time = time.time()
+    t0_time = time.time()
 
+    file_path_old = data_file_prefix(data_dir, t0_time)
     while forever:
         if file_stop_num < 0:
             try:
@@ -155,7 +172,7 @@ if __name__ == '__main__':
 
         count_down = counts_to_save
         payload_buff = payload_buff_head
-        t1_time = time.time()
+        block_time = time.time()
 
         while count_down:
             sock.recv_into(payload_buff, payload_size)
@@ -196,7 +213,11 @@ if __name__ == '__main__':
 
         num_lost_p = len(id_offsets[idx])
         if (num_lost_p > 0):
-            no_lost = False
+            if save_lost:
+                no_lost = True
+            else:
+                no_lost = False
+            else
             bad=np.arange(id_offsets.size)[idx][0]
             print(id_arr[bad-1:bad+2])
             num_lost_all += num_lost_p
@@ -204,34 +225,39 @@ if __name__ == '__main__':
             no_lost = True
 
 
-        # print("--- %s seconds ---" % (time.time() - start_time))
-
         # FIXME: how to export data
 
         if loop_file:
             k = file_cnt % 4
         else:
             k = file_cnt
-        # if i % 100 ==0 and no_lost :
+
         if  no_lost :
+            file_path = data_file_prefix(data_dir, block_time)
             if save_hdf5:
-                fout = 'data/' +labels[output_type] + '_' + str(k) + '.h5'
+                fout = os.path.join(file_path, labels[output_type] +
+                        '_' + str(k) + '.h5')
+
             else:
                 fout = './out_' + str(k) + '.npy'
 
             nsample = payload_size * counts_to_save
             if 'Darwin' not in platform_system:
                 writefile = Process(target=dumpdata,
-                        args=(fout,udp_payload_arr, id_arr, c_time, t1_time,
-                            nsample, save_hdf5))
+                        args=(fout,udp_payload_arr, id_arr, t0_time, block_time,
+                            num_lost_p, save_hdf5))
                 writefile.start()
             else:
                 # dumpdata(fout, udp_payload_arr, c_time, t1_time, nsample, False)
                 pass
-            file_cnt += 1
 
-            # print(f"{num_lost_p} packet lost, \
-                    # {num_lost_p/counts_to_save * 100}% of packets lost.")
+            if file_path == file_path_old:
+                file_cnt += 1
+            else:
+                file_cnt = 0
+
+            file_path_old = file_path
+
 
         if no_lost:
             i += 1
@@ -260,6 +286,8 @@ if __name__ == '__main__':
                     f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
 
         time_before = time_now
+
+
 
 
     sock.close()
