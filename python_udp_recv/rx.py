@@ -217,7 +217,7 @@ if __name__ == '__main__':
                 no_lost = True
             else:
                 no_lost = False
-            else
+
             bad=np.arange(id_offsets.size)[idx][0]
             print(id_arr[bad-1:bad+2])
             num_lost_all += num_lost_p

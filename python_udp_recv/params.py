@@ -89,6 +89,8 @@ counts_to_save = 2048
 # file_stop_num = 50
 file_stop_num = -1
 save_lost = True
+# default by hour
+split_by_min = True 
 
 
 class bcolors:

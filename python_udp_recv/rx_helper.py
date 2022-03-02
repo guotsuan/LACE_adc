@@ -15,6 +15,7 @@ import sys
 import os
 import datetime, time
 import termios, fcntl
+from params import split_by_min
 
 def prepare_folder(indir):
     isdir = os.path.isdir(indir)
@@ -31,8 +32,11 @@ def data_file_prefix(indir, stime):
     dt = datetime.datetime.utcfromtimestamp(time.time())
     folder_level1 = dt.strftime("%Y-%m-%d")
     folder_level2 = dt.strftime("%H")
-    folder_level3 = dt.strftime("%M")
-    full_path = os.path.join(indir, folder_level1, folder_level2, folder_level3)
+    if split_by_min:
+        folder_level3 = dt.strftime("%M")
+        full_path = os.path.join(indir, folder_level1, folder_level2, folder_level3)
+    else:
+        full_path = os.path.join(indir, folder_level1, folder_level2)
     
     if not os.path.exists(full_path):
         os.makedirs(full_path)
