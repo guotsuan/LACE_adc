@@ -28,7 +28,7 @@ def set_noblocking_keyboard():
     oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
-def dumpdata(file_name, data, stime, t1, ns, save_hdf5=False, header=None):
+def dumpdata(file_name, data, id_data, stime, t1, ns, save_hdf5=False, header=None):
 
     if save_hdf5:
         f=h5.File(file_name,'w')
@@ -37,9 +37,10 @@ def dumpdata(file_name, data, stime, t1, ns, save_hdf5=False, header=None):
         dset.attrs['unit'] = 'V'
         dset.attrs['offset_time'] = t1
         dset.attrs['nsample'] = t1
+        dset = f.create_dataset('frame_id', data=id_data)
         f.close()
-
-    np.save(file_name, data)
+    else:
+        np.save(file_name, data)
 
     # ff = h5.File(file_name, 'w')
     # ff.create_dataset('voltage', data=data )

@@ -13,6 +13,8 @@ functions for fft
 import numpy as np
 
 
+# for raw output 
+
 def fft_to_dBV(data):
     
     out = 20.*np.log10(np.abs(data/data.size))

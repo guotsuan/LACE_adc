@@ -26,12 +26,47 @@ from params import *
 from rx_helper import dumpdata,set_noblocking_keyboard
 
 
+
+if len(sys.argv) == 1:
+    print("recieving output type: ", labels[output_type])
+elif len(sys.argv) >= 2:
+    try:
+        args = sys.argv[1].split()
+        input_type = int(args[0])
+        output_type = input_type
+        print("input: ", input_type)
+    except:
+        print("input type must be one of 0,1,2,3")
+
+    if output_type > 3:
+        print("input type", input_type, " must be one of 0,1,2,3")
+        sys.exit()
+    else:
+        print("recieving output type from input: ", labels[output_type], "\n")
+
+
+src_udp_ip = src_ip[output_type]
+src_udp_port = src_port[output_type]
+
+udp_ip = dst_ip[output_type]
+udp_port = dst_port[output_type]
+
+if output_type % 2 == 0:
+    data_type = '>i2'
+    fft_data = False
+else:
+    data_type = '>u4'
+    fft_data = True
+
+
 # set the input of keyboard no-blocking
-set_noblocking_keyboard()
+if file_stop_num < 0:
+    set_noblocking_keyboard()
 
 # the period of the consecutive ID is 2**32 - 1 = 4294967295
 cycle = 4294967295
 max_id = 0
+forever = True
 
 # length of ID (bytes)
 id_size = 4
@@ -42,6 +77,7 @@ payload_size = 8200
 data_size = payload_size - id_size - sep_size
 header_size = 28
 block_size = 1024
+warmup_size = 4096
 
 num_lost_all = 0.0
 
@@ -84,7 +120,7 @@ if __name__ == '__main__':
     # Wait until the SeqNo is 1023 to start collect data, which is easy
     # to drap the data frames if one of them are lost in the transfering.
 
-    while tmp_id % block_size !=1023:
+    while tmp_id % warmup_size != warmup_size - 1:
         sock.recv_into(warmup_buff, payload_size)
         tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
         payload_size], 'big')
@@ -103,12 +139,13 @@ if __name__ == '__main__':
     c_time = time.time()
 
     while forever:
-        try:
-            c = sys.stdin.read(1)
-            if c =='x':
-                print("program will stop on given order")
-                forever = False
-        except IOError: pass
+        if file_stop_num < 0:
+            try:
+                c = sys.stdin.read(1)
+                if c =='x':
+                    print("program will stop on given order")
+                    forever = False
+            except IOError: pass
 
         pi1 = 0
         pi2 = data_size
@@ -175,12 +212,18 @@ if __name__ == '__main__':
             k = file_cnt % 4
         else:
             k = file_cnt
-        if i % 100 ==0 and no_lost :
-            fout = './out_' + str(k) + '.npy'
+        # if i % 100 ==0 and no_lost :
+        if  no_lost :
+            if save_hdf5:
+                fout = 'data/' +labels[output_type] + '_' + str(k) + '.h5'
+            else:
+                fout = './out_' + str(k) + '.npy'
+
             nsample = payload_size * counts_to_save
             if 'Darwin' not in platform_system:
                 writefile = Process(target=dumpdata,
-                        args=(fout,udp_payload_arr, c_time, t1_time, nsample, False))
+                        args=(fout,udp_payload_arr, id_arr, c_time, t1_time,
+                            nsample, save_hdf5))
                 writefile.start()
             else:
                 # dumpdata(fout, udp_payload_arr, c_time, t1_time, nsample, False)
@@ -196,6 +239,9 @@ if __name__ == '__main__':
             print("file not saved")
 
         time_now = time.perf_counter()
+        if (file_stop_num > 0) and (i > file_stop_num) :
+            forever = False
+
         if i % 100 == 0:
 
             sample_rate = 480e6
@@ -212,6 +258,7 @@ if __name__ == '__main__':
 
             print("The speed of acquaring data: " +
                     f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
+
         time_before = time_now
 
 

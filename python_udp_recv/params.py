@@ -19,7 +19,9 @@ import os
 #  Output 1 and Output 2  #
 ###########################
 
-# array in the order "RAW1, FFT1, RAW2, FFT2"
+# the order of the lists is "RAW1, FFT1, RAW2, FFT2"
+
+scale_fs = [0.5/2**15, 1.0, 0.5/2**15, 1.0]
 
 src_ip = ["192.168.90.20", "192.168.90.21", "192.168.90.30", "192.168.90.31"]
 
@@ -48,28 +50,14 @@ for nic in network_faces:
     addrs = netifaces.ifaddresses(nic)
     dst_mac.append(addrs[netifaces.AF_LINK][0]['addr'])
 
-print("get MAC address for NICs:")
-print(dst_mac)
+#print("get MAC address for NICs:")
+#print(dst_mac, "\n")
 
-
-dst_mac = ["24:5e:be:68:55:6e", "24:5e:be:68:55:6e", \
-           "24:5e:be:59:8d:46", "24:5e:be:59:8d:46"]
-# TWIN 10G SFP+ Sonnet
-dst_mac =  ["6c:b3:11:07:93:18", "6c:b3:11:07:93:18", \
-            "6c:b3:11:07:93:1a", "6c:b3:11:07:93:1a"] 
-
-# Intel X710
-
-dst_mac =  ["14:02:ec:76:60:44", "14:02:ec:76:60:44", \
-            "3c:fd:fe:c2:44:09", "3c:fd:fe:c2:44:09"] 
-
-# HP Intel X520
-
-dst_mac =  ["14:02:ec:76:60:44", "14:02:ec:76:60:44", \
-            "14:02:ec:76:60:45", "14:02:ec:76:60:45"] 
+# mac address are no longer need to specify
+# dst_mac
 
 # do not change
-labels = ["RAW output1", "FFT output1", "RAW output2", "FFT output2"]
+labels = ["RAW_output1", "FFT_output1", "RAW_output2", "FFT_output2"]
 
 raw1 = 0
 fft1 = 1
@@ -79,24 +67,11 @@ fft2 = 3
 # raw1, fft1, raw2, fft2
 output_type = raw1
 
-src_udp_ip = src_ip[output_type]
-src_udp_port = src_port[output_type]
 
-udp_ip = dst_ip[output_type]
-udp_port = dst_port[output_type]
-
-if output_type % 2 == 0:
-    data_type = '>i2'
-    fft_data = False
-else:
-    data_type = '>u4'
-    fft_data = True
-
-save_per_file = 1000
-loop_file=True
+loop_file=False
 output_fft = True
 udp_raw = False
-save_hdf5 = False
+save_hdf5 = True
 
 # the size of socket buffer for recieving data
 # maximum is 1610612736
@@ -106,10 +81,13 @@ else:
     rx_buffer = 1610612736
 
 # How many packets of data accumulated before saving
-counts_to_save = 1024
+counts_to_save = 2048
 
-# the rx program runing forever ?
-forever = True
+# the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
+# few files
+# run_forever = True
+file_stop_num = 50
+
 
 class bcolors:
     HEADER = '\033[95m'
