@@ -15,7 +15,29 @@ import sys
 import os
 import datetime, time
 import termios, fcntl
-from params import split_by_min
+from params import split_by_min, quantity, sample_rate, n_frames
+
+def save_meta_file(fname, stime):
+    ff = h5.File(fname, 'w')
+    ff.create_dataset('start_time', data=stime)
+    ff.create_dataset('time zone', data='utc')
+    ff.create_dataset('version', data=0.5)
+    ff.close()
+
+def display_metrics(i,time_before,time_now, s_time,num_lost_all, payload_size):
+    if i % 100 == 0:
+        size_of_data_per_sec = sample_rate * 2  # 2 byte times 480e6 points/s
+        acq_data_size = n_frames * payload_size
+        # duration  = acq_data_size / size_of_data_per_sec * 1.0
+        acq_time = time_now - time_before
+
+        print(f"frame loop time: {time_now - time_before:.3f},", \
+                " lost_packet:", num_lost_all, \
+                num_lost_all/(i+1)/n_frames, \
+                f"already run: {time_now - s_time:.3f}")
+
+        print("The speed of acquaring data: " +
+                f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
 
 def prepare_folder(indir):
     isdir = os.path.isdir(indir)
@@ -73,25 +95,29 @@ def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
     fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
     n_times = fft_in_data.shape[0]
 
-    mean_fft_result = np.mean(np.abs(np.fft.rfft(fft_in_data, axis=2)), 
-            axis=1)
+    if quantity == 'amplitude':
+        mean_fft_result = np.mean(np.abs(np.fft.rfft(fft_in_data, axis=2)), 
+                axis=1)
+    elif quantity == 'power': 
+        mean_fft_result = np.mean(np.abs(np.fft.rfft(fft_in_data, axis=2)**2), 
+                axis=1)
 
     if save_hdf5:
-        f=h5.File(file_name,'w')
-        dset = f.create_dataset('power', data=mean_fft_result)
+        f=h5.File(file_name +'.h5','w')
+        dset = f.create_dataset(quantity, data=mean_fft_result)
         dset.attrs['start_time'] = stime
         dset.attrs['block_time'] = t1
         dset.attrs['avg_n'] = avg_n
         dset.attrs['fft_length'] =  fft_length
         f.close()
     else:
-        np.save(file_name, data)
+        np.save(file_name +'.npy', data)
 
 
 def dumpdata(file_name, data, id_data, stime, t1, nb, save_hdf5=False, header=None):
 
     if save_hdf5:
-        f=h5.File(file_name,'w')
+        f=h5.File(file_name +'.h5','w')
         dset = f.create_dataset('voltage', data=data)
         dset.attrs['start_time'] = stime
         dset.attrs['block_time'] = t1
@@ -99,7 +125,7 @@ def dumpdata(file_name, data, id_data, stime, t1, nb, save_hdf5=False, header=No
         dset = f.create_dataset('frame_id', data=id_data)
         f.close()
     else:
-        np.save(file_name, data)
+        np.save(file_name +'.npy', data)
 
     # ff = h5.File(file_name, 'w')
     # ff.create_dataset('voltage', data=data )

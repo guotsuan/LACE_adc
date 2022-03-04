@@ -69,11 +69,14 @@ output_type = raw1
 
 
 loop_file=False
-output_fft = True
+output_fft = False
 save_hdf5 = True
 udp_raw = False
 save_lost = True
 quantity = 'amplitude'
+
+
+sample_rate = 480e6  # Hz
 
 if output_fft:
     fft_npoint = 65536
@@ -85,19 +88,25 @@ if output_fft:
     sample_rate_over_100 = 480000
     fft_single_time = fft_npoint / sample_rate_over_100
     # avg_n = int(av_time/fft_single_time)
-    avg_n = 1
+    avg_n = 8
 
     # How many packets of data accumulated before saving
     # counts_to_save = avg_n*fft_npoint*100
-    counts_to_save = 1024
+    n_frames = 1024
+
     save_lost = False
 
-    rounds_per_block = int(data_size*counts_to_save/fft_npoint/2)
-    rounds = rounds_per_block 
+    n_block_per_frame = int(data_size*n_frames/fft_npoint/2)
+
+    #  can be twice or more if the program is faster
+    n_block_to_save = avg_n*n_block_per_frame  
 
 else:
     # How many packets of data accumulated before saving
-    counts_to_save = 2048
+    n_frames = 2048
+    n_block_per_frame = 1 # sam
+    n_block_to_save = 1
+    # 8192 * 1024 points per file
 
 # the size of socket buffer for recieving data
 # maximum is 1610612736

@@ -25,9 +25,7 @@ import termios, fcntl
 
 # put all configrable parameters in params.py
 from params import *
-from rx_helper import dumpdata,set_noblocking_keyboard,prepare_folder,\
-        data_file_prefix,dump_fft_data
-
+from rx_helper import * 
 
 data_dir = ''
 
@@ -108,9 +106,9 @@ print("Receiving IP and Port: ", udp_ip, udp_port, "Binding...")
 sock.bind((udp_ip, udp_port))
 
 
-udp_payload = bytearray(counts_to_save*payload_size)
-udp_data = bytearray(counts_to_save*data_size)
-udp_id = bytearray(counts_to_save*id_size)
+udp_payload = bytearray(n_frames*payload_size)
+udp_data = bytearray(n_frames*data_size)
+udp_id = bytearray(n_frames*id_size)
 
 payload_buff = memoryview(udp_payload)
 data_buff = memoryview(udp_data)
@@ -149,15 +147,19 @@ if __name__ == '__main__':
 
     i = 0
     file_cnt = 0
-    fft_cnt = 0
+    block_cnt = 0
 
     s_time = time.perf_counter()
     time_before = s_time
     t0_time = time.time()
 
+    # FIXME: how to save time xxxxxx.xxxx properly
+    save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time)
+
     file_path_old = data_file_prefix(data_dir, t0_time)
     if output_fft:
         fft_group = np.zeros((rounds*avg_n, fft_npoint))
+        block_time_group = np.zeros((rounds*avg_n, fft_npoint))
 
     while forever:
         if file_stop_num < 0:
@@ -174,7 +176,7 @@ if __name__ == '__main__':
         hi1 = 0
         hi2 = id_size
 
-        count_down = counts_to_save
+        count_down = n_frames
         payload_buff = payload_buff_head
         block_time = time.time()
 
@@ -207,11 +209,6 @@ if __name__ == '__main__':
         udp_payload_arr = np.frombuffer(data_buff, dtype=data_type)
         id_offsets = np.diff(id_arr) % cycle
 
-        # sample_rate = 480e6
-        # one_sample_size = 2
-        # size_of_data_per_sec = sample_rate * 2
-        # acq_data_size = count * payload_size
-        # duration  = acq_data_size / size_of_data_per_sec * 1.0
 
         idx = id_offsets > 1
 
@@ -230,11 +227,12 @@ if __name__ == '__main__':
 
         if no_lost:
             if output_fft:
-                i1 = rounds_per_block*fft_cnt
-                i2 = i1+ rounds_per_block
+                i1 = n_block_per_frame*block_cnt
+                i2 = i1+ n_block_per_frame
                 fft_group[i1:i2,...] = udp_payload_arr.reshape((-1, fft_npoint))
-                i += 1
-                fft_cnt +=1
+
+            i += 1
+            block_cnt +=1
         else:
             print("block is dropped")
 
@@ -247,16 +245,11 @@ if __name__ == '__main__':
         else:
             k = file_cnt
 
-        if fft_cnt*rounds_per_block == avg_n*rounds:
+        # if time to save
+        if block_cnt*n_block_per_frame == n_block_to_save:
             file_path = data_file_prefix(data_dir, block_time)
-            if save_hdf5:
-                fout = os.path.join(file_path, labels[output_type] +
-                        '_' + str(k) + '.h5')
-
-            else:
-                fout = './out_' + str(k) + '.npy'
-
-            nsample = data_size * counts_to_save
+            fout = os.path.join(file_path, labels[output_type] +
+                    '_' + str(k))
 
             if 'Darwin' not in platform_system:
                 if output_fft:
@@ -270,8 +263,7 @@ if __name__ == '__main__':
 
                 writefile.start()
             else:
-                # dumpdata(fout, udp_payload_arr, c_time, t1_time, nsample, False)
-                pass
+                raise("Fixme, cannot save file")
 
             if file_path == file_path_old:
                 file_cnt += 1
@@ -279,7 +271,7 @@ if __name__ == '__main__':
                 file_cnt = 0
 
             file_path_old = file_path
-            fft_cnt = 0
+            block_cnt = 0
 
 
         #######################################################################
@@ -287,25 +279,9 @@ if __name__ == '__main__':
         #######################################################################
         time_now = time.perf_counter()
 
-        if i % 100 == 0:
-
-            sample_rate = 480e6
-            size_of_data_per_sec = sample_rate * 2
-            acq_data_size = counts_to_save * payload_size
-            duration  = acq_data_size / size_of_data_per_sec * 1.0
-
-            acq_time = time_now - time_before
-
-            print(f"block loop time: {time_now - time_before:.3f},", \
-                    " lost_packet:", num_lost_all, \
-                    num_lost_all/(i+1)/block_size, \
-                    f"already run: {time_now - s_time:.3f}")
-
-            print("The speed of acquaring data: " +
-                    f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
+        display_metrics(i,time_before, time_now, s_time, num_lost_all, payload_size)
 
         time_before = time_now
-
 
         if (file_stop_num > 0) and (file_cnt > file_stop_num) :
             forever = False
