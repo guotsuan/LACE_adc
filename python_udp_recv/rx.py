@@ -16,6 +16,7 @@ import os
 import time
 import datetime
 import threading
+import shutil
 from multiprocessing import Process
 
 import h5py as h5
@@ -155,6 +156,8 @@ if __name__ == '__main__':
 
     # FIXME: how to save time xxxxxx.xxxx properly
     save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time)
+    # Saveing parameters
+    shutil.copy('./params.py', data_dir)
 
     file_path_old = data_file_prefix(data_dir, t0_time)
     if output_fft:
