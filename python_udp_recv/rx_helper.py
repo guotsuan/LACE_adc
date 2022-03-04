@@ -67,6 +67,27 @@ def set_noblocking_keyboard():
     oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
+def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
+        scale_f=1.0, save_hdf5=False, header=None):
+
+    fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
+    n_times = fft_in_data.shape[0]
+
+    mean_fft_result = np.mean(np.abs(np.fft.rfft(fft_in_data, axis=2)), 
+            axis=1)
+
+    if save_hdf5:
+        f=h5.File(file_name,'w')
+        dset = f.create_dataset('power', data=mean_fft_result)
+        dset.attrs['start_time'] = stime
+        dset.attrs['block_time'] = t1
+        dset.attrs['avg_n'] = avg_n
+        dset.attrs['fft_length'] =  fft_length
+        f.close()
+    else:
+        np.save(file_name, data)
+
+
 def dumpdata(file_name, data, id_data, stime, t1, nb, save_hdf5=False, header=None):
 
     if save_hdf5:

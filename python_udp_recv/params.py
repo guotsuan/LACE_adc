@@ -70,8 +70,34 @@ output_type = raw1
 
 loop_file=False
 output_fft = True
-udp_raw = False
 save_hdf5 = True
+udp_raw = False
+save_lost = True
+quantity = 'amplitude'
+
+if output_fft:
+    fft_npoint = 65536
+    data_size = 8192
+    scale_f = 0.5/2**15
+
+    # the average time of spectrum
+    av_time = 1.0    # ms
+    sample_rate_over_100 = 480000
+    fft_single_time = fft_npoint / sample_rate_over_100
+    # avg_n = int(av_time/fft_single_time)
+    avg_n = 1
+
+    # How many packets of data accumulated before saving
+    # counts_to_save = avg_n*fft_npoint*100
+    counts_to_save = 1024
+    save_lost = False
+
+    rounds_per_block = int(data_size*counts_to_save/fft_npoint/2)
+    rounds = rounds_per_block 
+
+else:
+    # How many packets of data accumulated before saving
+    counts_to_save = 2048
 
 # the size of socket buffer for recieving data
 # maximum is 1610612736
@@ -80,17 +106,15 @@ if 'Darwin' in platform_system:
 else:
     rx_buffer = 1610612736
 
-# How many packets of data accumulated before saving
-counts_to_save = 2048
 
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-# file_stop_num = 50
-file_stop_num = -1
-save_lost = True
+file_stop_num = 10
+#file_stop_num = -1
+
 # default by hour
-split_by_min = True 
+split_by_min = False
 
 
 class bcolors:

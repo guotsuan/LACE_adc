@@ -26,7 +26,7 @@ import termios, fcntl
 # put all configrable parameters in params.py
 from params import *
 from rx_helper import dumpdata,set_noblocking_keyboard,prepare_folder,\
-        data_file_prefix
+        data_file_prefix,dump_fft_data
 
 
 data_dir = ''
@@ -149,12 +149,16 @@ if __name__ == '__main__':
 
     i = 0
     file_cnt = 0
+    fft_cnt = 0
 
     s_time = time.perf_counter()
     time_before = s_time
     t0_time = time.time()
 
     file_path_old = data_file_prefix(data_dir, t0_time)
+    if output_fft:
+        fft_group = np.zeros((rounds*avg_n, fft_npoint))
+
     while forever:
         if file_stop_num < 0:
             try:
@@ -224,15 +228,26 @@ if __name__ == '__main__':
         else:
             no_lost = True
 
+        if no_lost:
+            if output_fft:
+                i1 = rounds_per_block*fft_cnt
+                i2 = i1+ rounds_per_block
+                fft_group[i1:i2,...] = udp_payload_arr.reshape((-1, fft_npoint))
+                i += 1
+                fft_cnt +=1
+        else:
+            print("block is dropped")
 
-        # FIXME: how to export data
-
+        #######################################################################
+        #                            saving data                              #
+        #######################################################################
+        
         if loop_file:
             k = file_cnt % 4
         else:
             k = file_cnt
 
-        if  no_lost :
+        if fft_cnt*rounds_per_block == avg_n*rounds:
             file_path = data_file_prefix(data_dir, block_time)
             if save_hdf5:
                 fout = os.path.join(file_path, labels[output_type] +
@@ -241,11 +256,18 @@ if __name__ == '__main__':
             else:
                 fout = './out_' + str(k) + '.npy'
 
-            nsample = payload_size * counts_to_save
+            nsample = data_size * counts_to_save
+
             if 'Darwin' not in platform_system:
-                writefile = Process(target=dumpdata,
-                        args=(fout,udp_payload_arr, id_arr, t0_time, block_time,
-                            num_lost_p, save_hdf5))
+                if output_fft:
+                    writefile = Process(target=dump_fft_data,
+                            args=(fout,fft_group, t0_time, block_time,
+                                avg_n, fft_npoint, scale_f, save_hdf5))
+                else:
+                    writefile = Process(target=dumpdata,
+                            args=(fout,udp_payload_arr, id_arr, t0_time, block_time,
+                                num_lost_p, save_hdf5))
+
                 writefile.start()
             else:
                 # dumpdata(fout, udp_payload_arr, c_time, t1_time, nsample, False)
@@ -257,16 +279,13 @@ if __name__ == '__main__':
                 file_cnt = 0
 
             file_path_old = file_path
+            fft_cnt = 0
 
 
-        if no_lost:
-            i += 1
-        else:
-            print("file not saved")
-
+        #######################################################################
+        #                           information out                           #
+        #######################################################################
         time_now = time.perf_counter()
-        if (file_stop_num > 0) and (i > file_stop_num) :
-            forever = False
 
         if i % 100 == 0:
 
@@ -288,6 +307,8 @@ if __name__ == '__main__':
         time_before = time_now
 
 
+        if (file_stop_num > 0) and (file_cnt > file_stop_num) :
+            forever = False
 
 
     sock.close()
