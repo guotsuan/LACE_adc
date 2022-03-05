@@ -161,8 +161,9 @@ if __name__ == '__main__':
 
     file_path_old = data_file_prefix(data_dir, t0_time)
     if output_fft:
-        fft_group = np.zeros((rounds*avg_n, fft_npoint))
-        block_time_group = np.zeros((rounds*avg_n, fft_npoint))
+        fft_group = np.zeros((n_block_to_save, fft_npoint//2+1))
+        # FIXME: how to output
+        block_time_group = np.zeros(n_block_to_save)
 
     while forever:
         if file_stop_num < 0:
@@ -232,7 +233,12 @@ if __name__ == '__main__':
             if output_fft:
                 i1 = n_block_per_frame*block_cnt
                 i2 = i1+ n_block_per_frame
-                fft_group[i1:i2,...] = udp_payload_arr.reshape((-1, fft_npoint))
+                if fft_method =='cupy':
+                    fft_in_data = cp.array(udp_payload_arr.reshape((-1, fft_npoint)))
+                    if quantity == 'amplitude':
+                        fft_group[i1:i2,...] = np.abs(cp.fft.rfft(fft_in_data).get())
+                    elif quantity == 'power': 
+                        fft_group[i1:i2,...] = np.abs(cp.fft.rfft(fft_in_data).get())**2
 
             i += 1
             block_cnt +=1
@@ -256,15 +262,23 @@ if __name__ == '__main__':
 
             if 'Darwin' not in platform_system:
                 if output_fft:
-                    writefile = Process(target=dump_fft_data,
-                            args=(fout,fft_group, t0_time, block_time,
-                                avg_n, fft_npoint, scale_f, save_hdf5))
+                    # writefile = Process(target=dump_fft_data,
+                            # args=(fout,fft_group, t0_time, block_time,
+                                # avg_n, fft_npoint, scale_f, save_hdf5))
+                    # writefile.start()
+                    dump_fft_data(fout,fft_group, t0_time, block_time,
+                                avg_n, fft_npoint, scale_f, save_hdf5)
                 else:
-                    writefile = Process(target=dumpdata,
-                            args=(fout,udp_payload_arr, id_arr, t0_time, block_time,
-                                num_lost_p, save_hdf5))
+                    dumpdata(fout,udp_payload_arr, id_arr, t0_time, block_time,
+                                num_lost_p, save_hdf5)
+                    # Multiple thread is bad for saveing data, will open too
+                    # many of threads
 
-                writefile.start()
+                    # writefile = Process(target=dumpdata,
+                            # args=(fout,udp_payload_arr, id_arr, t0_time, block_time,
+                                # num_lost_p, save_hdf5))
+                    # writefile.start()
+
             else:
                 raise("Fixme, cannot save file")
 

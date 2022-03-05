@@ -15,7 +15,9 @@ import sys
 import os
 import datetime, time
 import termios, fcntl
-from params import split_by_min, quantity, sample_rate, n_frames
+import cupy as cp
+from params import split_by_min, quantity, sample_rate, n_frames,fft_method
+import torch
 
 def save_meta_file(fname, stime):
     ff = h5.File(fname, 'w')
@@ -95,12 +97,34 @@ def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
     fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
     n_times = fft_in_data.shape[0]
 
-    if quantity == 'amplitude':
-        mean_fft_result = np.mean(np.abs(np.fft.rfft(fft_in_data, axis=2)), 
-                axis=1)
-    elif quantity == 'power': 
-        mean_fft_result = np.mean(np.abs(np.fft.rfft(fft_in_data, axis=2)**2), 
-                axis=1)
+    if fft_method =='cupy':
+        fft_in_data = cp.array(fft_in_data)
+        if quantity == 'amplitude':
+            mean_fft_result = np.mean(np.abs(cp.fft.rfft(fft_in_data).get()), 
+                    axis=1)
+        elif quantity == 'power': 
+            mean_fft_result = np.mean(np.abs(cp.fft.rfft(fft_in_data).get())**2, 
+                    axis=1)
+    elif fft_method == 'pytorch':
+        device = torch.device('cuda')
+        fft_in_data = torch.from_numpy(fft_in_data).to(device)
+
+        if quantity == 'amplitude':
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+                dim=2).cpu().detach().numpy()), 
+                    axis=1)
+        elif quantity == 'power': 
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+                dim=2,).detach().cpu().numpy())**2, 
+                    axis=1)
+
+    else:
+        if quantity == 'amplitude':
+            mean_fft_result = np.mean(np.abs(np.fft.rfft(fft_in_data, axis=2)), 
+                    axis=1)
+        elif quantity == 'power': 
+            mean_fft_result = np.mean(np.abs(np.fft.rfft(fft_in_data, axis=2)**2), 
+                    axis=1)
 
     if save_hdf5:
         f=h5.File(file_name +'.h5','w')
