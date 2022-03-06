@@ -18,6 +18,7 @@ import datetime
 import threading
 import shutil
 from multiprocessing import Process
+from  threading import Thread
 
 import h5py as h5
 import numpy as np
@@ -29,6 +30,7 @@ from params import *
 from rx_helper import * 
 
 data_dir = ''
+good = 0
 
 
 args_len = len(sys.argv)
@@ -116,12 +118,15 @@ data_buff = memoryview(udp_data)
 id_buff = memoryview(udp_id)
 
 
+
 if __name__ == '__main__':
     # Warm up the system....
     # Drop the some data packets to avoid unstable
 
     print("Starting....")
     payload_buff_head = payload_buff
+
+    pstart = False
 
     id_head_before = 0
     id_tail_before = 0
@@ -161,7 +166,7 @@ if __name__ == '__main__':
 
     file_path_old = data_file_prefix(data_dir, t0_time)
     if output_fft:
-        fft_group = np.zeros((n_block_to_save, fft_npoint//2+1))
+        fft_group = np.zeros((n_block_to_save, fft_npoint))
         # FIXME: how to output
         block_time_group = np.zeros(n_block_to_save)
 
@@ -196,7 +201,7 @@ if __name__ == '__main__':
 
             count_down -= 1
 
-        id_arr = np.int32(np.frombuffer(udp_id,dtype='>u4'))
+        id_arr = np.uint32(np.frombuffer(udp_id,dtype='>u4'))
 
         diff = id_arr[0] - id_tail_before
         if (diff == 1) or (diff == - cycle ):
@@ -210,7 +215,7 @@ if __name__ == '__main__':
         id_head_before = id_arr[0]
         id_tail_before = id_arr[-1]
 
-        udp_payload_arr = np.frombuffer(data_buff, dtype=data_type)
+        udp_payload_arr = np.frombuffer(udp_data, dtype=data_type)
         id_offsets = np.diff(id_arr) % cycle
 
 
@@ -233,12 +238,7 @@ if __name__ == '__main__':
             if output_fft:
                 i1 = n_block_per_frame*block_cnt
                 i2 = i1+ n_block_per_frame
-                if fft_method =='cupy':
-                    fft_in_data = cp.array(udp_payload_arr.reshape((-1, fft_npoint)))
-                    if quantity == 'amplitude':
-                        fft_group[i1:i2,...] = np.abs(cp.fft.rfft(fft_in_data).get())
-                    elif quantity == 'power': 
-                        fft_group[i1:i2,...] = np.abs(cp.fft.rfft(fft_in_data).get())**2
+                fft_group[i1:i2,...] = udp_payload_arr.reshape(-1, fft_npoint)
 
             i += 1
             block_cnt +=1
@@ -255,6 +255,11 @@ if __name__ == '__main__':
             k = file_cnt
 
         # if time to save
+        # pstart = False
+        # print("activeTread: ",threading.active_count())
+        if pstart:
+            if block_cnt*n_block_per_frame == n_block_to_save - n_block_per_frame:
+                writefile.join()
         if block_cnt*n_block_per_frame == n_block_to_save:
             file_path = data_file_prefix(data_dir, block_time)
             fout = os.path.join(file_path, labels[output_type] +
@@ -262,12 +267,15 @@ if __name__ == '__main__':
 
             if 'Darwin' not in platform_system:
                 if output_fft:
-                    # writefile = Process(target=dump_fft_data,
-                            # args=(fout,fft_group, t0_time, block_time,
-                                # avg_n, fft_npoint, scale_f, save_hdf5))
-                    # writefile.start()
-                    dump_fft_data(fout,fft_group, t0_time, block_time,
-                                avg_n, fft_npoint, scale_f, save_hdf5)
+                    if not pstart:
+                        writefile = Thread(target=dump_fft_data,
+                                args=(fout,fft_group, t0_time, block_time,
+                                    avg_n, fft_npoint, scale_f, save_hdf5))
+                        writefile.start()
+                        pstart = True
+
+                    # dump_fft_data(fout,fft_group, t0_time, block_time,
+                                # avg_n, fft_npoint, scale_f, save_hdf5)
                 else:
                     dumpdata(fout,udp_payload_arr, id_arr, t0_time, block_time,
                                 num_lost_p, save_hdf5)

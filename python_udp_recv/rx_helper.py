@@ -18,6 +18,7 @@ import termios, fcntl
 import cupy as cp
 from params import split_by_min, quantity, sample_rate, n_frames,fft_method
 import torch
+import mkl_fft
 
 def save_meta_file(fname, stime):
     ff = h5.File(fname, 'w')
@@ -96,6 +97,7 @@ def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
 
     fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
     n_times = fft_in_data.shape[0]
+    
 
     if fft_method =='cupy':
         fft_in_data = cp.array(fft_in_data)
@@ -120,20 +122,21 @@ def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
 
     else:
         if quantity == 'amplitude':
-            mean_fft_result = np.mean(np.abs(np.fft.rfft(fft_in_data, axis=2)), 
+            mean_fft_result = np.mean(np.abs(mkl_fft.rfft_numpy(fft_in_data, axis=2)), 
                     axis=1)
         elif quantity == 'power': 
-            mean_fft_result = np.mean(np.abs(np.fft.rfft(fft_in_data, axis=2)**2), 
+            mean_fft_result = np.mean(np.abs(mkl_fft.rfft_numpy(fft_in_data, axis=2)**2), 
                     axis=1)
 
     if save_hdf5:
-        f=h5.File(file_name +'.h5','w')
-        dset = f.create_dataset(quantity, data=mean_fft_result)
-        dset.attrs['start_time'] = stime
-        dset.attrs['block_time'] = t1
-        dset.attrs['avg_n'] = avg_n
-        dset.attrs['fft_length'] =  fft_length
-        f.close()
+        # f=h5.File(file_name +'.h5','w')
+        # dset = f.create_dataset(quantity, data=mean_fft_result)
+        # dset.attrs['start_time'] = stime
+        # dset.attrs['block_time'] = t1
+        # dset.attrs['avg_n'] = avg_n
+        # dset.attrs['fft_length'] =  fft_length
+        pass
+        # f.close()
     else:
         np.save(file_name +'.npy', data)
 
