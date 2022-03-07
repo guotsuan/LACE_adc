@@ -26,8 +26,8 @@ cycle = 4294967295
 
 file_stop_num = 50
 
-id_arr = np.zeros((2, file_stop_num, n_frames), dtype=np.uint32)
-voltage_arr = np.zeros((2, file_stop_num, n_frames*data_size//2), dtype=np.float32)
+id_arr = np.zeros((2, file_stop_num, n_frames_per_loop), dtype=np.uint32)
+voltage_arr = np.zeros((2, file_stop_num, n_frames_per_loop*data_size//2), dtype=np.float32)
 
 output_type = [0, 2]
 

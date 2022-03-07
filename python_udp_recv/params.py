@@ -74,7 +74,7 @@ udp_raw = False
 save_lost = True
 quantity = 'amplitude'
 
-output_fft = True
+output_fft = False
 
 sample_rate = 480e6  # Hz
 
@@ -93,22 +93,27 @@ if output_fft:
 
     # How many packets of data accumulated before saving
     # counts_to_save = avg_n*fft_npoint*100
-    n_frames = 16
+    n_frames_per_loop = 16
 
     save_lost = False
 
-    n_block_per_frame = int(data_size*n_frames/fft_npoint/2)
+    n_fft_blocks_per_loop = int(data_size*n_frames_per_loop/fft_npoint/2)
 
     #  can be twice or more if the program is faster
-    n_block_to_save = avg_n*n_block_per_frame
-    print("n_block_per_frame: ", n_block_per_frame)
+    n_block_to_save = avg_n*n_fft_blocks_per_loop
+    fft_block = avg_n * fft_npoint
+
+    nn_block = 1024
+    print("n_block_per_frame: ", n_fft_blocks_per_loop)
     # print(n_block_per_frame)
     #fft_method =['numpy', 'cupy', 'pytorch']
 
 else:
     # How many packets of data accumulated before saving
-    n_frames = 2048
-    n_block_per_frame = 1 # sam
+    n_frames_per_loop = 2048
+
+    # this two parameters have no meaning here, just to make the codes run
+    n_fft_blocks_per_loop = 1 # sam
     n_block_to_save = 1
     # 8192 * 1024 points per file
 
@@ -123,7 +128,7 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-file_stop_num = 1000
+file_stop_num = 2000
 #file_stop_num = -1
 
 # default by hour

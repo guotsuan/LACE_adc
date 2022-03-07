@@ -109,9 +109,9 @@ print("Receiving IP and Port: ", udp_ip, udp_port, "Binding...")
 sock.bind((udp_ip, udp_port))
 
 
-udp_payload = bytearray(n_frames*payload_size)
-udp_data = bytearray(n_frames*data_size)
-udp_id = bytearray(n_frames*id_size)
+udp_payload = bytearray(n_frames_per_loop*payload_size)
+udp_data = bytearray(n_frames_per_loop*data_size)
+udp_id = bytearray(n_frames_per_loop*id_size)
 
 payload_buff = memoryview(udp_payload)
 data_buff = memoryview(udp_data)
@@ -166,7 +166,7 @@ if __name__ == '__main__':
 
     file_path_old = data_file_prefix(data_dir, t0_time)
     if output_fft:
-        fft_group = np.zeros((n_block_to_save, fft_npoint))
+        fft_group = np.zeros((nn_block*n_avg, fft_npoint))
         # FIXME: how to output
         block_time_group = np.zeros(n_block_to_save)
 
@@ -185,7 +185,7 @@ if __name__ == '__main__':
         hi1 = 0
         hi2 = id_size
 
-        count_down = n_frames
+        count_down = n_frames_per_loop
         payload_buff = payload_buff_head
         block_time = time.time()
 
@@ -236,8 +236,8 @@ if __name__ == '__main__':
 
         if no_lost:
             if output_fft:
-                i1 = n_block_per_frame*block_cnt
-                i2 = i1+ n_block_per_frame
+                i1 = n_fft_blocks_per_loop*block_cnt
+                i2 = i1+ n_fft_blocks_per_loop
                 fft_group[i1:i2,...] = udp_payload_arr.reshape(-1, fft_npoint)
 
             i += 1
@@ -258,9 +258,16 @@ if __name__ == '__main__':
         # pstart = False
         # print("activeTread: ",threading.active_count())
         if pstart:
-            if block_cnt*n_block_per_frame == n_block_to_save - n_block_per_frame:
-                writefile.join()
-        if block_cnt*n_block_per_frame == n_block_to_save:
+            if output_fft:
+                if block_cnt*n_fft_blocks_per_loop == n_block_to_save - n_fft_blocks_per_loop:
+                    writefile.join()
+                    pstart = False
+            else:
+                if block_cnt == n_block_to_save:
+                    writefile.join()
+                    pstart = False
+
+        if block_cnt*n_fft_blocks_per_loop == n_block_to_save:
             file_path = data_file_prefix(data_dir, block_time)
             fout = os.path.join(file_path, labels[output_type] +
                     '_' + str(k))
@@ -277,15 +284,17 @@ if __name__ == '__main__':
                     # dump_fft_data(fout,fft_group, t0_time, block_time,
                                 # avg_n, fft_npoint, scale_f, save_hdf5)
                 else:
-                    dumpdata(fout,udp_payload_arr, id_arr, t0_time, block_time,
-                                num_lost_p, save_hdf5)
+                    # dumpdata(fout,udp_payload_arr, id_arr, t0_time, block_time,
+                                # num_lost_p, save_hdf5)
                     # Multiple thread is bad for saveing data, will open too
                     # many of threads
 
-                    # writefile = Process(target=dumpdata,
-                            # args=(fout,udp_payload_arr, id_arr, t0_time, block_time,
-                                # num_lost_p, save_hdf5))
-                    # writefile.start()
+                    if not pstart:
+                        writefile = Thread(target=dumpdata,
+                                args=(fout,udp_payload_arr, id_arr, t0_time, block_time,
+                                    num_lost_p, save_hdf5))
+                        writefile.start()
+                        pstart = True
 
             else:
                 raise("Fixme, cannot save file")
