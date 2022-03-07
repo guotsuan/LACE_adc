@@ -17,12 +17,12 @@ import time
 import datetime
 import threading
 import shutil
-from multiprocessing import Process
+from multiprocessing import Process, shared_memory
 from  threading import Thread
 
 import h5py as h5
 import numpy as np
-import termios, fcntl
+#import termios, fcntl
 
 
 # put all configrable parameters in params.py
@@ -127,6 +127,8 @@ if __name__ == '__main__':
     payload_buff_head = payload_buff
 
     pstart = False
+    fft_file_save = False
+
 
     id_head_before = 0
     id_tail_before = 0
@@ -153,7 +155,8 @@ if __name__ == '__main__':
 
     i = 0
     file_cnt = 0
-    block_cnt = 0
+    loop_cnt = 0
+    fft_block_cnt = 0
 
     s_time = time.perf_counter()
     time_before = s_time
@@ -163,11 +166,19 @@ if __name__ == '__main__':
     save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time)
     # Saveing parameters
     shutil.copy('./params.py', data_dir)
-
     file_path_old = data_file_prefix(data_dir, t0_time)
+
+
+    shm_main = shared_memory.SharedMemory(create=True, 
+            size=8*n_block_to_save*fft_npoint)
+
     if output_fft:
-        fft_group = np.zeros((nn_block*n_avg, fft_npoint))
+        fft_group = np.ndarray((n_block_to_save, fft_npoint), 
+            buffer=shm_main.buf)
+        # fft_data_back = np.zeros((1,avg_n*n_fft_blocks_per_loop, fft_npoint//2+1))
+
         # FIXME: how to output
+
         block_time_group = np.zeros(n_block_to_save)
 
     while forever:
@@ -234,16 +245,6 @@ if __name__ == '__main__':
         else:
             no_lost = True
 
-        if no_lost:
-            if output_fft:
-                i1 = n_fft_blocks_per_loop*block_cnt
-                i2 = i1+ n_fft_blocks_per_loop
-                fft_group[i1:i2,...] = udp_payload_arr.reshape(-1, fft_npoint)
-
-            i += 1
-            block_cnt +=1
-        else:
-            print("block is dropped")
 
         #######################################################################
         #                            saving data                              #
@@ -254,20 +255,35 @@ if __name__ == '__main__':
         else:
             k = file_cnt
 
-        # if time to save
-        # pstart = False
         # print("activeTread: ",threading.active_count())
-        if pstart:
-            if output_fft:
-                if block_cnt*n_fft_blocks_per_loop == n_block_to_save - n_fft_blocks_per_loop:
-                    writefile.join()
-                    pstart = False
-            else:
-                if block_cnt == n_block_to_save:
+        if output_fft:
+            if pstart:
+                if loop_cnt*n_fft_blocks_per_loop == n_block_to_save - \
+                    n_fft_blocks_per_loop:
+
+                        writefile.join()
+                        fft_block_cnt += 1
+
+                        pstart = False
+        else:
+            if pstart:
+                if loop_cnt == n_block_to_save:
                     writefile.join()
                     pstart = False
 
-        if block_cnt*n_fft_blocks_per_loop == n_block_to_save:
+
+        if no_lost:
+            if output_fft:
+                i1 = n_fft_blocks_per_loop*loop_cnt
+                i2 = i1+ n_fft_blocks_per_loop
+                fft_group[i1:i2,...] = udp_payload_arr.reshape(-1, fft_npoint)
+
+            i += 1
+            loop_cnt +=1
+        else:
+            print("block is dropped")
+
+        if loop_cnt*n_fft_blocks_per_loop == n_block_to_save :
             file_path = data_file_prefix(data_dir, block_time)
             fout = os.path.join(file_path, labels[output_type] +
                     '_' + str(k))
@@ -275,19 +291,17 @@ if __name__ == '__main__':
             if 'Darwin' not in platform_system:
                 if output_fft:
                     if not pstart:
-                        writefile = Thread(target=dump_fft_data,
-                                args=(fout,fft_group, t0_time, block_time,
-                                    avg_n, fft_npoint, scale_f, save_hdf5))
+                        writefile = Process(target=compute_fft_data2,
+                                args=(fft_group, avg_n, fft_npoint, scale_f,))
                         writefile.start()
                         pstart = True
 
                     # dump_fft_data(fout,fft_group, t0_time, block_time,
                                 # avg_n, fft_npoint, scale_f, save_hdf5)
+
                 else:
                     # dumpdata(fout,udp_payload_arr, id_arr, t0_time, block_time,
                                 # num_lost_p, save_hdf5)
-                    # Multiple thread is bad for saveing data, will open too
-                    # many of threads
 
                     if not pstart:
                         writefile = Thread(target=dumpdata,
@@ -305,7 +319,7 @@ if __name__ == '__main__':
                 file_cnt = 0
 
             file_path_old = file_path
-            block_cnt = 0
+            loop_cnt = 0
 
 
         #######################################################################
@@ -322,3 +336,5 @@ if __name__ == '__main__':
 
 
     sock.close()
+    shm_main.close()
+    shm_main.unlink()

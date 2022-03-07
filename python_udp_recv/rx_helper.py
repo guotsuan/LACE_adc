@@ -92,40 +92,71 @@ def set_noblocking_keyboard():
     oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
-def compute_fft_dat(data, avg_n, fft_length, scale_f, fft_out,index):
-    fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
+def compute_fft_data2(data, avg_n, fft_length, scale_f):
+    # fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
+    fft_in_data = scale_f*data
     
     if fft_method =='cupy':
         fft_in_data = cp.array(fft_in_data)
         if quantity == 'amplitude':
-            mean_fft_result = np.mean(np.abs(cp.fft.rfft(fft_in_data).get()), 
-                    axis=1)
+            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
         elif quantity == 'power': 
-            mean_fft_result = np.mean(np.abs(cp.fft.rfft(fft_in_data).get())**2, 
-                    axis=1)
+            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2, 
+                    
     elif fft_method == 'pytorch':
         device = torch.device('cuda')
         fft_in_data = torch.from_numpy(fft_in_data).to(device)
 
         if quantity == 'amplitude':
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
-                dim=2).cpu().detach().numpy()), 
-                    axis=1)
+            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
+                dim=-1).cpu().detach().numpy())
         elif quantity == 'power': 
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
-                dim=2,).detach().cpu().numpy())**2, 
-                    axis=1)
+            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
+                dim=-1).detach().cpu().numpy())**2
 
     else:
         if quantity == 'amplitude':
-            mean_fft_result = np.mean(np.abs(mkl_fft.rfft_numpy(fft_in_data, axis=2)), 
-                    axis=1)
+            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
+            # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
         elif quantity == 'power': 
-            mean_fft_result = np.mean(np.abs(mkl_fft.rfft_numpy(fft_in_data, axis=2)**2), 
-                    axis=1)
+            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
+            # mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2 
+
+
+def compute_fft_data(data, avg_n, fft_length, scale_f,fft_out, i):
+    # fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
+    fft_in_data = scale_f*data
+    
+    if fft_method =='cupy':
+        fft_in_data = cp.array(fft_in_data)
+        if quantity == 'amplitude':
+            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
+        elif quantity == 'power': 
+            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2, 
+                    
+    elif fft_method == 'pytorch':
+        device = torch.device('cpu')
+        fft_in_data = torch.from_numpy(fft_in_data).to(device)
+
+        if quantity == 'amplitude':
+            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
+                dim=-1).cpu().detach().numpy())
+        elif quantity == 'power': 
+            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
+                dim=-1).detach().cpu().numpy())**2
+
+    else:
+        if quantity == 'amplitude':
+            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
+            # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
+        elif quantity == 'power': 
+            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
+            # mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2 
+
+
+    fft_out[i,...]=mean_fft_result
 
     # save small fft group of points and submit to ques and concurrentq
-    fft_out[i]=mean_fft_result 
 
 def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
         scale_f=1.0, save_hdf5=False, header=None):
