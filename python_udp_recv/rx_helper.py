@@ -108,11 +108,11 @@ def compute_fft_data2(data, avg_n, fft_length, scale_f):
         fft_in_data = torch.from_numpy(fft_in_data).to(device)
 
         if quantity == 'amplitude':
-            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
-                dim=-1).cpu().detach().numpy())
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+                dim=-1).cpu().detach().numpy()), axis=1)
         elif quantity == 'power': 
-            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
-                dim=-1).detach().cpu().numpy())**2
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+                dim=-1).detach().cpu().numpy())**2, axis=1)
 
     else:
         if quantity == 'amplitude':
@@ -123,38 +123,41 @@ def compute_fft_data2(data, avg_n, fft_length, scale_f):
             # mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2 
 
 
-def compute_fft_data(data, avg_n, fft_length, scale_f,fft_out, i):
-    # fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
-    fft_in_data = scale_f*data
+def compute_fft_data(data, avg_n, fft_length, scale_f,fft_out, i,j):
+    fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
+    # fft_in_data = scale_f*data
     
     if fft_method =='cupy':
         fft_in_data = cp.array(fft_in_data)
         if quantity == 'amplitude':
-            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
+            mean_fft_result = np.mean(np.abs(cp.fft.rfft(fft_in_data).get()),
+                    axis=1)
         elif quantity == 'power': 
-            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2, 
+            mean_fft_result = np.mean(np.abs(cp.fft.rfft(fft_in_data).get())**2, 
+                    axis=1)
                     
     elif fft_method == 'pytorch':
         device = torch.device('cpu')
         fft_in_data = torch.from_numpy(fft_in_data).to(device)
 
         if quantity == 'amplitude':
-            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
-                dim=-1).cpu().detach().numpy())
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+                dim=-1).cpu().detach().numpy()), axis=1)
         elif quantity == 'power': 
-            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
-                dim=-1).detach().cpu().numpy())**2
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+                dim=-1).detach().cpu().numpy())**2, axis=1)
 
     else:
         if quantity == 'amplitude':
-            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
+            mean_fft_result =np.mean(np.abs(np.fft.rfft(fft_in_data)),
+                    axis=1)
             # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
         elif quantity == 'power': 
-            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
+            mean_fft_result =np.mean(np.abs(np.fft.rfft(fft_in_data))**2,
+                    axis=1)
             # mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2 
 
-
-    fft_out[i,...]=mean_fft_result
+    fft_out[i:j,...]=mean_fft_result
 
     # save small fft group of points and submit to ques and concurrentq
 
@@ -162,14 +165,13 @@ def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
         scale_f=1.0, save_hdf5=False, header=None):
 
     if save_hdf5:
-        # f=h5.File(file_name +'.h5','w')
-        # dset = f.create_dataset(quantity, data=mean_fft_result)
-        # dset.attrs['start_time'] = stime
-        # dset.attrs['block_time'] = t1
-        # dset.attrs['avg_n'] = avg_n
-        # dset.attrs['fft_length'] =  fft_length
-        pass
-        # f.close()
+        f=h5.File(file_name +'.h5','w')
+        dset = f.create_dataset(quantity, data=data)
+        dset.attrs['start_time'] = stime
+        dset.attrs['block_time'] = t1
+        dset.attrs['avg_n'] = avg_n
+        dset.attrs['fft_length'] =  fft_length
+        f.close()
     else:
         np.save(file_name +'.npy', data)
 

@@ -68,13 +68,13 @@ fft2 = 3
 output_type = raw1
 
 
-loop_file=False
+loop_file= True
 save_hdf5 = True
 udp_raw = False
 save_lost = True
 quantity = 'amplitude'
 
-output_fft = True
+output_fft = False
 
 sample_rate = 480e6  # Hz
 
@@ -100,10 +100,15 @@ if output_fft:
     n_fft_blocks_per_loop = int(data_size*n_frames_per_loop/fft_npoint/2)
 
     #  can be twice or more if the program is faster
-    n_block_to_save = n_fft_blocks_per_loop *avg_n * 32
-
     print("n_block_per_frame: ", n_fft_blocks_per_loop)
-    # print(n_block_per_frame)
+
+    n_blocks_to_process = n_fft_blocks_per_loop *avg_n 
+
+    hh = int(n_blocks_to_process/n_fft_blocks_per_loop/avg_n)
+
+    n_blocks_to_save  = 128
+
+
     #fft_method =['numpy', 'cupy', 'pytorch']
 
 else:
@@ -112,7 +117,7 @@ else:
 
     # this two parameters have no meaning here, just to make the codes run
     n_fft_blocks_per_loop = 1 # sam
-    n_block_to_save = 1
+    n_blocks_to_process = 1
     # 8192 * 1024 points per file
 
 # the size of socket buffer for recieving data
