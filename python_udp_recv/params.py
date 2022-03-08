@@ -68,7 +68,7 @@ fft2 = 3
 output_type = raw1
 
 
-loop_file= True
+loop_file= False
 save_hdf5 = True
 udp_raw = False
 save_lost = True
@@ -77,11 +77,13 @@ quantity = 'amplitude'
 output_fft = False
 
 sample_rate = 480e6  # Hz
+data_size = 8192
+
+n_workers = 6
 
 fft_method = 'numpy'
 if output_fft:
     fft_npoint = 65536
-    data_size = 8192
     scale_f = 0.5/2**15
 
     # the average time of spectrum
@@ -113,7 +115,7 @@ if output_fft:
 
 else:
     # How many packets of data accumulated before saving
-    n_frames_per_loop = 2048
+    n_frames_per_loop = 8192
 
     # this two parameters have no meaning here, just to make the codes run
     n_fft_blocks_per_loop = 1 # sam
@@ -131,7 +133,7 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-file_stop_num = 100
+file_stop_num = 4000
 #file_stop_num = -1
 
 # default by hour

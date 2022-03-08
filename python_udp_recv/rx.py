@@ -18,7 +18,9 @@ import datetime
 import threading
 import shutil
 from multiprocessing import Process, shared_memory
+
 from  threading import Thread
+from concurrent import futures
 
 import h5py as h5
 import numpy as np
@@ -169,21 +171,22 @@ if __name__ == '__main__':
     file_path_old = data_file_prefix(data_dir, t0_time)
 
 
-    if output_fft:
+    # setup shared memory for another Process to save data
 
-        shm_main = shared_memory.SharedMemory(create=True, 
-                size=8*n_blocks_to_process*fft_npoint)
-        shm_out = shared_memory.SharedMemory(create=True, 
-                size=8*hh*n_blocks_to_save*(fft_npoint//2+1))
+    # shm_udp_payload_arr = shared_memory.SharedMemory(create=True, \
+           # size=8192*n_frames_per_loop*data_size//2)  
 
-        fft_group = np.ndarray((n_blocks_to_process, fft_npoint), 
-            buffer=shm_main.buf)
-        fft_data_back = np.ndarray((n_blocks_to_save*hh,fft_npoint//2+1),
-            buffer=shm_out.buf)
+    # udp_payload_arr = np.ndarray(n_frames_per_loop*data_size//2, 
+            # dtype=data_type, buffer=shm_udp_payload_arr.buf)
 
-        # FIXME: how to output
 
-        block_time_group = np.zeros(n_blocks_to_process)
+    # shm_id_arr = shared_memory.SharedMemory(create=True, \
+           # size=16*n_frames_per_loop)  
+
+    # id_arr = np.ndarray(n_frames_per_loop, 
+            # dtype=data_type, buffer=shm_id_arr.buf)
+
+    executor = futures.ThreadPoolExecutor(max_workers=6)
 
     while forever:
         if file_stop_num < 0:
@@ -224,6 +227,7 @@ if __name__ == '__main__':
         else:
             print("block is not connected", id_tail_before, id_arr[0])
             print("program last ", time.time() - s_time)
+            num_lost_all += 1
             # raise ValueError("block is not connected")
 
         # update the ids before for next section
@@ -259,98 +263,43 @@ if __name__ == '__main__':
         else:
             k = file_cnt
 
-        # print("activeTread: ",threading.active_count())
-        if output_fft:
-            if pstart:
-                if loop_cnt*n_fft_blocks_per_loop == n_blocks_to_process - \
-                    n_fft_blocks_per_loop:
-
-                        writefile.join()
-                        fft_block_cnt += 1
-                        pstart = False
-        else:
-            if pstart:
-                if loop_cnt == n_blocks_to_process:
-                    writefile.join()
-                    pstart = False
-
+        if pstart:
+            writefile.result()
+            pstart=False
 
         if no_lost:
-            if output_fft:
-                i1 = n_fft_blocks_per_loop*loop_cnt
-                i2 = i1+ n_fft_blocks_per_loop
-                fft_group[i1:i2,...] = udp_payload_arr.reshape(-1, fft_npoint)
+            file_path = data_file_prefix(data_dir, block_time)
+            fout = os.path.join(file_path, labels[output_type] +
+                    '_' + str(k))
 
-            i += 1
-            loop_cnt +=1
+            if not pstart:
+
+                writefile=executor.submit(dumpdata, 
+                        fout,
+                        udp_payload_arr,
+                        id_arr,
+                        t0_time, block_time, num_lost_p, save_hdf5)
+
+                # writefile = Thread(target=dumpdata,
+                        # args=(fout,shm_udp_payload_arr.name,
+                        # shm_id_arr.name,
+                        # t0_time, block_time, num_lost_p, save_hdf5))
+                # writefile.start()
+                pstart = True
+
+                if file_path == file_path_old:
+                    file_cnt += 1
+                else:
+                    file_cnt = 0
+
+                file_path_old = file_path
+
         else:
             print("block is dropped")
 
-        if loop_cnt*n_fft_blocks_per_loop == n_blocks_to_process :
 
-            if 'Darwin' not in platform_system:
-                if output_fft:
-                    if not pstart:
-                        i1 = fft_block_cnt*hh
-                        i2 = i1 + hh
-                        writefile = Process(target=compute_fft_data,
-                                args=(fft_group, avg_n, fft_npoint, scale_f,
-                                    fft_data_back, i1,i2))
-                        writefile.start()
-                        pstart = True
 
-                    # dump_fft_data(fout,fft_group, t0_time, block_time,
-                                # avg_n, fft_npoint, scale_f, save_hdf5)
 
-                else:
-                    # dumpdata(fout,udp_payload_arr, id_arr, t0_time, block_time,
-                                # num_lost_p, save_hdf5)
-                    file_path = data_file_prefix(data_dir, block_time)
-                    fout = os.path.join(file_path, labels[output_type] +
-                            '_' + str(k))
-
-                    if not pstart:
-                        writefile = Thread(target=dumpdata,
-                                args=(fout,udp_payload_arr, id_arr, t0_time, block_time,
-                                    num_lost_p, save_hdf5))
-                        writefile.start()
-                        pstart = True
-
-                        if file_path == file_path_old:
-                            file_cnt += 1
-                        else:
-                            file_cnt = 0
-
-                        file_path_old = file_path
-            else:
-                raise("Fixme, cannot save file")
-
-            loop_cnt = 0
-
-        if output_fft:
-            if fft_file_save and (fft_block_cnt == n_blocks_to_save - 2):
-                dumpfile.join()
-                fft_file_save = False
-
-            if fft_block_cnt == n_blocks_to_save-1:
-                file_path = data_file_prefix(data_dir, block_time)
-                fout = os.path.join(file_path, labels[output_type] +
-                        '_' + str(k))
-
-                fft_block_cnt = 0
-
-                if not fft_file_save:
-                    dumpfile=Thread(target=dump_fft_data,args=(fout,fft_data_back, 
-                        t0_time, block_time, avg_n, fft_npoint, scale_f, save_hdf5))
-                    dumpfile.start()
-                    fft_file_save = True
-
-                    if file_path == file_path_old:
-                        file_cnt += 1
-                    else:
-                        file_cnt = 0
-
-                    file_path_old = file_path
 
         #######################################################################
         #                           information out                           #
@@ -366,8 +315,10 @@ if __name__ == '__main__':
 
 
     sock.close()
-    shm_main.close()
-    shm_main.unlink()
-    shm_out.close()
-    shm_out.unlink()
+    # executor.result()
+
+    # shm_udp_payload_arr.close()
+    # shm_udp_payload_arr.unlink()
+    # shm_id_arr.close()
+    # shm_id_arr.unlink()
 

@@ -16,9 +16,12 @@ import os
 import datetime, time
 import termios, fcntl
 import cupy as cp
-from params import split_by_min, quantity, sample_rate, n_frames_per_loop,fft_method
+from params import split_by_min, quantity, sample_rate, \
+        n_frames_per_loop,fft_method, data_size
 import torch
 import mkl_fft
+from multiprocessing import shared_memory
+
 
 def save_meta_file(fname, stime):
     ff = h5.File(fname, 'w')
@@ -28,7 +31,7 @@ def save_meta_file(fname, stime):
     ff.close()
 
 def display_metrics(i,time_before,time_now, s_time,num_lost_all, payload_size):
-    if i % 100 == 0:
+    if i % 1000 == 0:
         size_of_data_per_sec = sample_rate * 2  # 2 byte times 480e6 points/s
         acq_data_size = n_frames_per_loop * payload_size
         # duration  = acq_data_size / size_of_data_per_sec * 1.0
@@ -161,12 +164,12 @@ def compute_fft_data(data, avg_n, fft_length, scale_f,fft_out, i,j):
 
     # save small fft group of points and submit to ques and concurrentq
 
-def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
+def dump_fft_data(file_name, stime, t1, avg_n, fft_length,
         scale_f=1.0, save_hdf5=False, header=None):
 
     if save_hdf5:
         f=h5.File(file_name +'.h5','w')
-        dset = f.create_dataset(quantity, data=data)
+        dset = f.create_dataset(quantity, data=[1])
         dset.attrs['start_time'] = stime
         dset.attrs['block_time'] = t1
         dset.attrs['avg_n'] = avg_n
@@ -176,7 +179,18 @@ def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
         np.save(file_name +'.npy', data)
 
 
-def dumpdata(file_name, data, id_data, stime, t1, nb, save_hdf5=False, header=None):
+def dumpdata(file_name, data, id_data, stime, t1, nb, 
+        save_hdf5=False, header=None):
+
+    # data_type = '>i2'
+
+    # shm_data = shared_memory.SharedMemory(data_name)
+    # data = np.ndarray(n_frames_per_loop*data_size//2, 
+        # dtype=data_type, buffer=shm_data.buf)
+
+    # shm_id_data = shared_memory.SharedMemory(id_data_name)
+    # id_data = np.ndarray(n_frames_per_loop, 
+        # dtype=np.uint32, buffer=shm_id_data.buf)
 
     if save_hdf5:
         f=h5.File(file_name +'.h5','w')
@@ -189,6 +203,4 @@ def dumpdata(file_name, data, id_data, stime, t1, nb, save_hdf5=False, header=No
     else:
         np.save(file_name +'.npy', data)
 
-    # ff = h5.File(file_name, 'w')
-    # ff.create_dataset('voltage', data=data )
-    # ff.close()
+     
