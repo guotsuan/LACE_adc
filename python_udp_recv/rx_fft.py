@@ -15,13 +15,14 @@ import sys
 import os
 import time
 import datetime
-import threading
 import shutil
 from concurrent import futures
 
 import h5py as h5
 import numpy as np
 #import termios, fcntl
+from multiprocessing import Pool,shared_memory,Queue
+from functools import partial
 
 
 # put all configrable parameters in params.py
@@ -29,10 +30,10 @@ from params import *
 from rx_helper import * 
 
 data_dir = ''
-good = 0
 
-if output_fft:
-    sys.exit("wrong program, please use rx_fft.py or change output_fft to False")
+if not output_fft:
+    sys.exit("wrong program, please use rx.py or change output_fft to True")
+
 
 args_len = len(sys.argv)
 if args_len < 3:
@@ -55,7 +56,6 @@ elif args_len == 3:
     else:
         print("recieving output type from input: ", labels[output_type])
         print("saving into the folder: ", data_dir)
-
 
 if data_dir == '':
     sys.exit("data directory has not been specified")
@@ -119,16 +119,29 @@ data_buff = memoryview(udp_data)
 id_buff = memoryview(udp_id)
 
 
+udp_data_arr = np.ndarray(int(n_frames_per_loop*data_size//2),
+        dtype=data_type)
+
+udp_data_arr_buff = memoryview(udp_data_arr)
+
+part_compute_fft = partial(compute_fft_data_only, 
+        udp_data_arr, fft_npoint)
+# shm_data = shared_memory.SharedMemory(create=True, size=2*n_frames_per_loop*4096)
+
+# udp_payload_arr = np.ndarray(n_frames_per_loop*4096, dtype=data_type,
+        # buffer=shm_data.buf)
+
+qq = Queue()
 
 if __name__ == '__main__':
     # Warm up the system....
     # Drop the some data packets to avoid unstable
 
-    print("Starting....")
+    print("Starting rx_fft....")
     payload_buff_head = payload_buff
 
     pstart = False
-    fft_file_save = False
+    wfile = False
 
 
     id_head_before = 0
@@ -156,8 +169,8 @@ if __name__ == '__main__':
 
     i = 0
     file_cnt = 0
-    loop_cnt = 0
     fft_block_cnt = 0
+    marker = 0
 
     s_time = time.perf_counter()
     time_before = s_time
@@ -169,7 +182,10 @@ if __name__ == '__main__':
     shutil.copy('./params.py', data_dir)
     file_path_old = data_file_prefix(data_dir, t0_time)
 
-    executor = futures.ProcessPoolExecutor(max_workers=6)
+    executor = Pool(processes=8)
+    # executor = futures.ProcessPoolExecutor(max_workers=8)
+
+    # fft_data_to_save = np.zeros((n_blocks_to_save*n_fft_blocks_per_loop, fft_npoint//2+1))
 
     while forever:
         if file_stop_num < 0:
@@ -217,7 +233,7 @@ if __name__ == '__main__':
         id_head_before = id_arr[0]
         id_tail_before = id_arr[-1]
 
-        udp_payload_arr = np.frombuffer(udp_data, dtype=data_type)
+        udp_data_arr_buff = np.frombuffer(udp_data, dtype=data_type)
         id_offsets = np.diff(id_arr) % cycle
 
 
@@ -231,7 +247,7 @@ if __name__ == '__main__':
                 no_lost = False
 
             bad=np.arange(id_offsets.size)[idx][0]
-            print(id_arr[bad-1:bad+2])
+            print(id_arr[bad-2:bad+3])
             num_lost_all += num_lost_p
         else:
             no_lost = True
@@ -246,24 +262,56 @@ if __name__ == '__main__':
         else:
             k = file_cnt
 
-        if pstart:
-            writefile.result()
-            pstart=False
+        # if marker >=4:
+            # compute_fft[marker-4].get()
+
+        # if marker == 8:
+            # marker = 0
+            # sys.exit()
 
         if no_lost:
-            file_path = data_file_prefix(data_dir, block_time)
-            fout = os.path.join(file_path, labels[output_type] +
-                    '_' + str(k))
+            if fft_block_cnt == 0:
+                file_path = data_file_prefix(data_dir, block_time)
+                fout = os.path.join(file_path, labels[output_type] +
+                        '_' + str(k))
 
-            if not pstart:
 
-                writefile=executor.submit(dumpdata, 
-                        fout,
-                        udp_payload_arr,
-                        id_arr,
-                        t0_time, block_time, num_lost_p, save_hdf5)
+            if marker == 0:
+                compute_fft=[]
 
-                pstart = True
+            # if marker < 8:
+                # i1=fft_block_cnt*n_fft_blocks_per_loop
+            # i2=i1+n_fft_blocks_per_loop
+            fft_in = udp_data_arr.reshape(-1,fft_npoint)
+            qq.put(fft_in)
+
+            # print("n_f", n_frames_per_loop*4096//fft_npoint)
+            # data_in = [fft_in[ii,...] for ii in range(n_fft_blocks_per_loop)]
+            for ii in range(n_fft_blocks_per_loop):
+                compute_fft.append(executor.apply_async(compute_fft_data_only,
+                       (fft_in[ii,...],)))
+
+            marker += 1
+            fft_block_cnt += 1
+
+            # print(fft_block_cnt)
+            # if wfile and (fft_block_cnt == n_blocks_to_save-1):
+                # writefile.result()
+                # wfile=False
+                
+            if fft_block_cnt == n_blocks_to_save:
+                fft_block_cnt = 0
+                # writefile.result()
+
+                # print("write file")
+                # writefile=write_executor.submit(dump_fft_data, 
+                        # fout,
+                        # fft_data_to_save,
+                        # t0_time, block_time, avg_n,
+                        # fft_npoint,
+                        # scale_f,
+                        # save_hdf5)
+                # wfile = True
 
                 if file_path == file_path_old:
                     file_cnt += 1
@@ -288,9 +336,11 @@ if __name__ == '__main__':
 
         time_before = time_now
 
+        i +=1
         if (file_stop_num > 0) and (file_cnt > file_stop_num) :
             forever = False
 
 
+    compute_fft.result()
     sock.close()
 
