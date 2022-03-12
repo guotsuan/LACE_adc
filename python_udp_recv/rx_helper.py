@@ -23,11 +23,12 @@ import mkl_fft
 from multiprocessing import shared_memory
 
 
-def save_meta_file(fname, stime):
+def save_meta_file(fname, stime, s_id):
     ff = h5.File(fname, 'w')
     ff.create_dataset('start_time', data=stime)
     ff.create_dataset('time zone', data='utc')
     ff.create_dataset('version', data=0.5)
+    ff.create_dataset('id_start', data=s_id)
     ff.close()
 
 def display_metrics(i,time_before,time_now, s_time,num_lost_all, payload_size):
@@ -155,7 +156,7 @@ def compute_fft_data_only(fft_in_data):
         elif quantity == 'power': 
             mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
 
-    # return mean_fft_result
+    return mean_fft_result
 
 def compute_fft_data(fout,data, n_save, avg_n, fft_length, scale_f, 
         i,j, save_hdf5):

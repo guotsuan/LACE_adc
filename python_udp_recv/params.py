@@ -96,7 +96,7 @@ if output_fft:
     # How many packets of data accumulated before saving
     # counts_to_save = avg_n*fft_npoint*100
     # n_frames_per_loop = int(fft_npoint/data_size*2*avg_n)
-    n_frames_per_loop = 256
+    n_frames_per_loop = 512
 
     save_lost = False
 
@@ -107,7 +107,7 @@ if output_fft:
 
     print("n_fft_per_loop", n_fft_blocks_per_loop)
 
-    n_blocks_to_save  = 2048
+    n_blocks_to_save  = 256
 
 
     #fft_method =['numpy', 'cupy', 'pytorch']
