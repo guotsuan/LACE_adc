@@ -76,7 +76,6 @@ def data_file_prefix(indir, stime):
 
 
 def epoctime2date(etime, utc=True):
-    import datetime
 
     if utc:
         return datetime.datetime.utcfromtimestamp(etime).isoformat() + ' UTC'

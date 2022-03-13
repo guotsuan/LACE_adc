@@ -111,20 +111,13 @@ print("Receiving IP and Port: ", udp_ip, udp_port, "Binding...")
 sock.bind((udp_ip, udp_port))
 
 
-
-# shm_data = shared_memory.SharedMemory(create=True, size=2*n_frames_per_loop*4096)
-
-# udp_payload_arr = np.ndarray(n_frames_per_loop*4096, dtype=data_type,
-        # buffer=shm_data.buf)
-
 raw_data_q = Queue()
 fft_data_q = Queue()
 
+# pool = Pool(max_workers)
 
-executor = futures.ProcessPoolExecutor(max_workers=4)
-pp = Pool(4)
-
-def get_sample_data(sock,raw_data_q,forever,payload_size,data_size,  #{{{
+def get_sample_data(sock,raw_data_q, forever, #{{{}
+        payload_size,data_size, 
         id_size, nframes_per_loop, data_type, id_head_before,
         id_tail_before, file_stop_num):
     udp_payload = bytearray(n_frames_per_loop*payload_size)
@@ -167,7 +160,7 @@ def get_sample_data(sock,raw_data_q,forever,payload_size,data_size,  #{{{
 
         count_down = n_frames_per_loop
         payload_buff = payload_buff_head
-        block_time = time.time()
+        block_time1 = time.time()
 
         # print("dog")
         while count_down:
@@ -182,6 +175,7 @@ def get_sample_data(sock,raw_data_q,forever,payload_size,data_size,  #{{{
 
             count_down -= 1
 
+        block_time2 = time.time()
         id_arr = np.uint32(np.frombuffer(udp_id,dtype='>u4'))
 
         diff = id_arr[0] - id_tail_before
@@ -216,7 +210,8 @@ def get_sample_data(sock,raw_data_q,forever,payload_size,data_size,  #{{{
             no_lost = True
 
         if no_lost:
-            raw_data_q.put(udp_data_arr)
+            block_time = (block_time1 + block_time2)/2
+            raw_data_q.put((udp_data_arr,id_arr[0], id_arr[-1], block_time))
             # if raw_data_q.qsize() < 2000:
             # else:
                 # time.sleep(200)
@@ -233,29 +228,81 @@ def get_sample_data(sock,raw_data_q,forever,payload_size,data_size,  #{{{
         # sock.close()  # }}}
 
 def compute_fft(qq, fft_length, fft_out_q):
-    data = qq.get().reshape((-1, fft_length))
+    data, ids, ide, block_time = qq.get()
+    data = data.reshape(-1, fft_length)
     fft_data = compute_fft_data_only(data)
-    fft_out_q.put(fft_data)
+    fft_out_q.put((fft_data, ids, ide, block_time))
 
-compute_fft_map=partial(compute_fft, raw_data_q, fft_npoint)
 
-def save_fft_data(fft_out_q, n_blocks_to_save, fft_npoint, avg_n):
+def save_fft_data(fft_out_q, n_blocks_to_save, fft_npoint, avg_n, 
+        data_dir, file_prefix):
+    # We need to save:
+    # 1. fft_data(n_blockas_to_save, fft_npoint//2+1)
+    # 2. averaged epochtime,  (t0_time + t1_time) 
+    # 3. the first ID of raw data frame and the last ID of raw data frame 
+
     nn = 0
+    file_cnt = 0
+
+    file_path_old = ''
+
     while True:
-        fft_data_to_file = np.zeros((n_blocks_to_save, fft_npoint//2+1))
-        fft_out = np.mean(fft_out_q.get().reshape(-1,avg_n, fft_npoint//2+1),
+
+        fft_data, ids, ide, block_time = fft_out_q.get()
+
+        if nn == 0:
+            file_path = data_file_prefix(data_dir, block_time)
+            if file_path_old =='':
+                file_path_old = file_path
+            fout = os.path.join(file_path, file_prefix +
+                    '_' + str(file_cnt))
+            fft_data_to_file = np.zeros((n_blocks_to_save, fft_npoint//2+1))
+
+        fft_out = np.mean(fft_data.reshape(-1,avg_n, fft_npoint//2+1),
                     axis=1)
+
+
         ngrp = fft_out.shape[0]
+        if nn ==0:
+            fft_id_to_file = np.zeros((n_blocks_to_save//ngrp, 2), dtype=np.uint32)
+            fft_block_time_to_file = np.zeros((n_blocks_to_save//ngrp,))
+
+        fft_id_to_file[nn,0] = ids
+        fft_id_to_file[nn,1] = ide
+
+        fft_block_time_to_file[nn] = block_time
         i1 = nn*ngrp
         i2 = i1+ngrp
         fft_data_to_file[i1:i2,...] =fft_out
         nn +=1
 
-        print("nn: ", nn, i2, n_blocks_to_save)
+        # print("nn: ", nn, i2, n_blocks_to_save)
         if i2 == n_blocks_to_save:
-            print(fft_data_to_file[-1,0:5])
-            print(fft_data_to_file.size)
-            sys.exit()
+            nn = 0
+
+            f=h5.File(fout +'.h5', 'w')
+
+            dset = f.create_dataset(quantity, data=fft_data_to_file)
+            dset.attrs['avg_n'] = avg_n
+            dset.attrs['fft_length'] =  fft_npoint
+
+            dset = f.create_dataset('block_time', data=fft_block_time_to_file)
+            dset = f.create_dataset('block_ids', data=fft_id_to_file)
+
+            f.close()
+
+            file_cnt +=1
+
+            if file_path == file_path_old:
+                file_cnt += 1
+            else:
+                file_cnt = 0
+
+            file_path_old = file_path
+
+            # print(fft_data_to_file[-1,0:5])
+            # print(fft_id_to_file[-1,0], fft_block_time_to_file[-1])
+            # sys.exit()
 
 
     
@@ -294,26 +341,39 @@ if __name__ == '__main__':
 
     t0_time = time.time()
     # FIXME: how to save time xxxxxx.xxxx properly
+    # 
+    # In info.h5, we need to save
+    # 1. t0_time: The start time of rx_fft.py receiving.
+    # 2. id_tail_before: The first ID of the data received by rx_fft.py 
+    # 3. 
+
     save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time, id_tail_before)
 
-    # Saveing parameters
+    # Saving parameters
     shutil.copy('./params.py', data_dir)
 
-    file_path_old = data_file_prefix(data_dir, t0_time)
+    # copy info.txt from receiver and save
+    os.system("scp rec:~/info.txt " + os.path.join(data_dir, 'info_recv.txt'))
+
+
+    # start a new Process to receive data from the Receiver
 
     read=Process(target=get_sample_data, args=(sock, raw_data_q, forever,payload_size,data_size,
         id_size, n_frames_per_loop, data_type, id_head_before, id_tail_before,
         file_stop_num), daemon=True)
     read.start()
 
+    # start a new Process to save the FFT data
+    file_path_old = data_file_prefix(data_dir, t0_time)
+
     save_fft=Process(target=save_fft_data, args=(fft_data_q, n_blocks_to_save,
-        fft_npoint, avg_n), daemon=True)
+        fft_npoint, avg_n, data_dir, labels[output_type]), daemon=True)
     save_fft.start()
 
     while True:
 
         fft=[]
-        for kk in range(4):
+        for kk in range(max_workers):
             p=Process(target=compute_fft, args=(raw_data_q, fft_npoint,
                 fft_data_q))
             p.start()
@@ -321,8 +381,8 @@ if __name__ == '__main__':
             if raw_data_q.empty():
                 print("empty")
 
-        for pp in fft:
-            pp.join()
+        for pool in fft:
+            pool.join()
 
 
 

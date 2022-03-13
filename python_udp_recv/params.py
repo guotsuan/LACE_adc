@@ -79,7 +79,7 @@ output_fft = True
 sample_rate = 480e6  # Hz
 data_size = 8192
 
-n_workers = 6
+max_workers = 6
 
 fft_method = 'cupy'
 if output_fft:
