@@ -20,9 +20,7 @@ from concurrent import futures
 
 import h5py as h5
 import numpy as np
-#import termios, fcntl
-from multiprocessing import Pool,shared_memory,Queue, Process
-from functools import partial
+from multiprocessing import Queue, Process, RawValue
 
 
 # put all configrable parameters in params.py
@@ -31,11 +29,8 @@ from rx_helper import *
 
 data_dir = ''
 
-
 if not output_fft:
     sys.exit("wrong program, please use rx.py or change output_fft to True")
-
-
 
 args_len = len(sys.argv)
 if args_len < 3:
@@ -99,7 +94,6 @@ header_size = 28
 block_size = 1024
 warmup_size = 4096
 
-
 sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
 
@@ -113,13 +107,15 @@ sock.bind((udp_ip, udp_port))
 
 raw_data_q = Queue()
 fft_data_q = Queue()
+v= RawValue('i', 0)
+v.value = 0
 
-# pool = Pool(max_workers)
 
-def get_sample_data(sock,raw_data_q, forever, #{{{}
+def get_sample_data(sock,raw_data_q, forever,   #{{{
         payload_size,data_size, 
         id_size, nframes_per_loop, data_type, id_head_before,
-        id_tail_before, file_stop_num):
+        id_tail_before):
+
     udp_payload = bytearray(n_frames_per_loop*payload_size)
     udp_data = bytearray(n_frames_per_loop*data_size)
     udp_id = bytearray(n_frames_per_loop*id_size)
@@ -128,8 +124,6 @@ def get_sample_data(sock,raw_data_q, forever, #{{{}
     data_buff = memoryview(udp_data)
     id_buff = memoryview(udp_id)
 
-
-    print("osid: ", os.getpid())
     payload_buff_head = payload_buff
     
     i = 0
@@ -143,14 +137,7 @@ def get_sample_data(sock,raw_data_q, forever, #{{{}
     t0_time = time.time()
 
 
-    while forever:
-        if file_stop_num < 0:
-            try:
-                c = sys.stdin.read(1)
-                if c =='x':
-                    print("program will stop on given order")
-                    forever = False
-            except IOError: pass
+    while True:
 
         pi1 = 0
         pi2 = data_size
@@ -162,7 +149,6 @@ def get_sample_data(sock,raw_data_q, forever, #{{{}
         payload_buff = payload_buff_head
         block_time1 = time.time()
 
-        # print("dog")
         while count_down:
             sock.recv_into(payload_buff, payload_size)
             data_buff[pi1:pi2] = payload_buff[0:data_size]
@@ -185,7 +171,6 @@ def get_sample_data(sock,raw_data_q, forever, #{{{}
             print("block is not connected", id_tail_before, id_arr[0])
             print("program last ", time.time() - s_time)
             num_lost_all += 1
-            # raise ValueError("block is not connected")
 
         # update the ids before for next section
         id_head_before = id_arr[0]
@@ -197,45 +182,37 @@ def get_sample_data(sock,raw_data_q, forever, #{{{}
         idx = id_offsets > 1
 
         num_lost_p = len(id_offsets[idx])
-        if (num_lost_p > 0):
-            if save_lost:
-                no_lost = True
-            else:
-                no_lost = False
 
+        if (num_lost_p > 0):
             bad=np.arange(id_offsets.size)[idx][0]
             print(id_arr[bad-2:bad+3])
             num_lost_all += num_lost_p
         else:
-            no_lost = True
-
-        if no_lost:
-            block_time = (block_time1 + block_time2)/2
+            block_time = epoctime2date((block_time1 + block_time2)/2.)
             raw_data_q.put((udp_data_arr,id_arr[0], id_arr[-1], block_time))
-            # if raw_data_q.qsize() < 2000:
-            # else:
-                # time.sleep(200)
 
         time_now = time.perf_counter()
 
-        display_metrics(i,time_before, time_now, s_time, num_lost_all, payload_size)
+        if i == 3000:
+            display_metrics(time_before, time_now, s_time, num_lost_all, 
+                    payload_size)
+            i = 0
 
         time_before = time_now
-
         i +=1
-        if (file_stop_num > 0) and (file_cnt > file_stop_num) :
-            forever = False
-        # sock.close()  # }}}
+
+        # }}}
 
 def compute_fft(qq, fft_length, fft_out_q):
-    data, ids, ide, block_time = qq.get()
-    data = data.reshape(-1, fft_length)
-    fft_data = compute_fft_data_only(data)
-    fft_out_q.put((fft_data, ids, ide, block_time))
+    if not qq.empty():
+        data, ids, ide, block_time = qq.get()
+        data = data.reshape(-1, fft_length)
+        fft_data = compute_fft_data_only(data)
+        fft_out_q.put((fft_data, ids, ide, block_time))
 
 
 def save_fft_data(fft_out_q, n_blocks_to_save, fft_npoint, avg_n, 
-        data_dir, file_prefix):
+        data_dir, file_prefix, file_stop_num, v):  #{{{
     # We need to save:
     # 1. fft_data(n_blockas_to_save, fft_npoint//2+1)
     # 2. averaged epochtime,  (t0_time + t1_time) 
@@ -243,13 +220,12 @@ def save_fft_data(fft_out_q, n_blocks_to_save, fft_npoint, avg_n,
 
     nn = 0
     file_cnt = 0
-
     file_path_old = ''
 
-    while True:
+    loop_forever = True
 
+    while loop_forever:
         fft_data, ids, ide, block_time = fft_out_q.get()
-
         if nn == 0:
             file_path = data_file_prefix(data_dir, block_time)
             if file_path_old =='':
@@ -261,11 +237,11 @@ def save_fft_data(fft_out_q, n_blocks_to_save, fft_npoint, avg_n,
         fft_out = np.mean(fft_data.reshape(-1,avg_n, fft_npoint//2+1),
                     axis=1)
 
-
         ngrp = fft_out.shape[0]
         if nn ==0:
             fft_id_to_file = np.zeros((n_blocks_to_save//ngrp, 2), dtype=np.uint32)
-            fft_block_time_to_file = np.zeros((n_blocks_to_save//ngrp,))
+            fft_block_time_to_file = np.zeros((n_blocks_to_save//ngrp,), 
+                    dtype='S30')
 
         fft_id_to_file[nn,0] = ids
         fft_id_to_file[nn,1] = ide
@@ -300,10 +276,16 @@ def save_fft_data(fft_out_q, n_blocks_to_save, fft_npoint, avg_n,
 
             file_path_old = file_path
 
-            # print(fft_data_to_file[-1,0:5])
-            # print(fft_id_to_file[-1,0], fft_block_time_to_file[-1])
-            # sys.exit()
 
+        if file_stop_num < 0 or file_cnt <= file_stop_num:
+            loop_forever = True
+        else:
+            loop_forever = False
+            fft_out_q.cancel_join_thread()
+            v.value = 1
+            print("save fft loop ended")
+
+   #}}}
 
     
 if __name__ == '__main__':
@@ -311,10 +293,6 @@ if __name__ == '__main__':
     # Drop the some data packets to avoid unstable
 
     print("Starting rx_fft....")
-
-    pstart = False
-    wfile = False
-
 
     id_head_before = 0
     id_tail_before = 0
@@ -340,7 +318,6 @@ if __name__ == '__main__':
             tmp_id % block_size)
 
     t0_time = time.time()
-    # FIXME: how to save time xxxxxx.xxxx properly
     # 
     # In info.h5, we need to save
     # 1. t0_time: The start time of rx_fft.py receiving.
@@ -355,22 +332,24 @@ if __name__ == '__main__':
     # copy info.txt from receiver and save
     os.system("scp rec:~/info.txt " + os.path.join(data_dir, 'info_recv.txt'))
 
-
     # start a new Process to receive data from the Receiver
 
-    read=Process(target=get_sample_data, args=(sock, raw_data_q, forever,payload_size,data_size,
-        id_size, n_frames_per_loop, data_type, id_head_before, id_tail_before,
-        file_stop_num), daemon=True)
+    read=Process(target=get_sample_data, args=(sock, raw_data_q, forever,
+        payload_size,data_size, id_size, n_frames_per_loop, data_type, 
+        id_head_before, id_tail_before),
+        daemon=True)
     read.start()
 
     # start a new Process to save the FFT data
-    file_path_old = data_file_prefix(data_dir, t0_time)
 
     save_fft=Process(target=save_fft_data, args=(fft_data_q, n_blocks_to_save,
-        fft_npoint, avg_n, data_dir, labels[output_type]), daemon=True)
+        fft_npoint, avg_n, data_dir, labels[output_type], file_stop_num,v),
+        daemon=True)
     save_fft.start()
 
-    while True:
+    main_loop_ctl = True
+
+    while main_loop_ctl:
 
         fft=[]
         for kk in range(max_workers):
@@ -378,34 +357,26 @@ if __name__ == '__main__':
                 fft_data_q))
             p.start()
             fft.append(p)
-            if raw_data_q.empty():
-                print("empty")
+            # if raw_data_q.empty():
+                # print("Raw data que is empty")
 
-        for pool in fft:
-            pool.join()
+        for fp in fft:
+            if v.value == 0:
+                fp.join()
+            else:
+                fp.terminate()
 
+        if v.value == 1:
+            main_loop_ctl=False
+            print("rx_fft.py will exit, clean up....\n")
+            for fp in fft:
+                print("fft processes are terminated")
+                fp.terminate()
 
-
-        # print(raw_data_q.qsize())
-        # if raw_data_q.full():
-            # print("I am full and died")
-            # print(raw_data_q.qsize())
-            # while True:
-                # data = raw_data_q.get()
-                # print(data[0:5])
-                # if raw_data_q.empty():
-                    # print(raw_data_q.qsize())
-                    # sys.exit("I am empty and died")
-
-    # read.join()
+    read.terminate()
+    print("get sample processes are terminated")
+    save_fft.terminate()
+    print("save file processes are terminated\n")
     
-
-
-
-
-        #######################################################################
-        #                           information out                           #
-        #######################################################################
-
-
+    sys.exit("rx_fft.py exited...")
 

@@ -31,20 +31,19 @@ def save_meta_file(fname, stime, s_id):
     ff.create_dataset('id_start', data=s_id)
     ff.close()
 
-def display_metrics(i,time_before,time_now, s_time,num_lost_all, payload_size):
-    if i % 1000 == 0:
-        size_of_data_per_sec = sample_rate * 2  # 2 byte times 480e6 points/s
-        acq_data_size = n_frames_per_loop * payload_size
-        # duration  = acq_data_size / size_of_data_per_sec * 1.0
-        acq_time = time_now - time_before
+def display_metrics(time_before,time_now, s_time, num_lost_all, payload_size):
 
-        print(f"frame loop time: {time_now - time_before:.3f},", \
-                " lost_packet:", num_lost_all, \
-                num_lost_all/(i+1)/n_frames_per_loop, \
-                f"already run: {time_now - s_time:.3f}")
+    size_of_data_per_sec = sample_rate * 2  # 2 byte times 480e6 points/s
+    acq_data_size = n_frames_per_loop * payload_size
+    # duration  = acq_data_size / size_of_data_per_sec * 1.0
+    acq_time = time_now - time_before
 
-        print("The speed of acquaring data: " +
-                f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
+    print(f"frame loop time: {time_now - time_before:.3f},", \
+            " lost_packet:", num_lost_all, \
+            f"already run: {time_now - s_time:.3f}")
+
+    print("The speed of acquaring data: " +
+            f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
 
 def prepare_folder(indir):
     isdir = os.path.isdir(indir)
@@ -78,7 +77,8 @@ def data_file_prefix(indir, stime):
 def epoctime2date(etime, utc=True):
 
     if utc:
-        return datetime.datetime.utcfromtimestamp(etime).isoformat() + ' UTC'
+        return datetime.datetime.utcfromtimestamp(etime).isoformat() 
+        # return datetime.datetime.utcfromtimestamp(etime).isoformat() + ' UTC'
     else:
         return datetime.datetime.fromtimestamp(etime).isoformat()
 

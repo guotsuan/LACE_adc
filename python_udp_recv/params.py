@@ -79,7 +79,7 @@ output_fft = True
 sample_rate = 480e6  # Hz
 data_size = 8192
 
-max_workers = 6
+max_workers = 4
 
 fft_method = 'cupy'
 if output_fft:
@@ -107,7 +107,7 @@ if output_fft:
 
     print("n_fft_per_loop", n_fft_blocks_per_loop)
 
-    n_blocks_to_save  = 256
+    n_blocks_to_save  = 128
 
 
     #fft_method =['numpy', 'cupy', 'pytorch']
@@ -132,7 +132,7 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-file_stop_num = 10
+file_stop_num = 3
 #file_stop_num = -1
 
 # default by hour
