@@ -252,4 +252,17 @@ def dumpdata(file_name, data, id_data, stime, t1, nb,
     else:
         np.save(file_name +'.npy', data)
 
-     
+
+def compute_fft(data_in, fft_length, i):
+    data = data_in[i,...].reshape(-1, fft_length)
+    fft_data = compute_fft_data_only(data)
+    return fft_data
+
+    # if not qq.empty():
+        # with lock:
+            # data, ids, ide, block_time = qq.get()
+        # data = data.reshape(-1, fft_length)
+        # fft_data = compute_fft_data_only(data)
+        # with wlock:
+            # fft_out_q.put((fft_data, ids, ide, block_time))
+

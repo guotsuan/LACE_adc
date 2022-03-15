@@ -17,10 +17,11 @@ import time
 import datetime
 import shutil
 from concurrent import futures
+from functools import partial
 
 import h5py as h5
 import numpy as np
-from multiprocessing import Queue, Process, RawValue
+from multiprocessing import Queue, Process, RawValue, Lock, Pool
 
 
 # put all configrable parameters in params.py
@@ -107,6 +108,10 @@ sock.bind((udp_ip, udp_port))
 
 raw_data_q = Queue()
 fft_data_q = Queue()
+
+
+fft_pool = Pool(max_workers)
+
 v= RawValue('i', 0)
 v.value = 0
 
@@ -203,12 +208,6 @@ def get_sample_data(sock,raw_data_q, forever,   #{{{
 
         # }}}
 
-def compute_fft(qq, fft_length, fft_out_q):
-    if not qq.empty():
-        data, ids, ide, block_time = qq.get()
-        data = data.reshape(-1, fft_length)
-        fft_data = compute_fft_data_only(data)
-        fft_out_q.put((fft_data, ids, ide, block_time))
 
 
 def save_fft_data(fft_out_q, n_blocks_to_save, fft_npoint, avg_n, 
@@ -281,7 +280,6 @@ def save_fft_data(fft_out_q, n_blocks_to_save, fft_npoint, avg_n,
             loop_forever = True
         else:
             loop_forever = False
-            fft_out_q.cancel_join_thread()
             v.value = 1
             print("save fft loop ended")
 
@@ -292,7 +290,7 @@ if __name__ == '__main__':
     # Warm up the system....
     # Drop the some data packets to avoid unstable
 
-    print("Starting rx_fft....")
+    print("Starting rx_fft....", os.getpid())
 
     id_head_before = 0
     id_tail_before = 0
@@ -342,6 +340,7 @@ if __name__ == '__main__':
 
     # start a new Process to save the FFT data
 
+
     save_fft=Process(target=save_fft_data, args=(fft_data_q, n_blocks_to_save,
         fft_npoint, avg_n, data_dir, labels[output_type], file_stop_num,v),
         daemon=True)
@@ -349,34 +348,38 @@ if __name__ == '__main__':
 
     main_loop_ctl = True
 
+    data_in = np.empty((max_workers, n_frames_per_loop*data_size//2))
+    compute_fft_map = partial(compute_fft, data_in,fft_npoint)
+
+
     while main_loop_ctl:
 
-        fft=[]
-        for kk in range(max_workers):
-            p=Process(target=compute_fft, args=(raw_data_q, fft_npoint,
-                fft_data_q))
-            p.start()
-            fft.append(p)
-            # if raw_data_q.empty():
-                # print("Raw data que is empty")
+        # the order of averaged fft is not sequential. 
+        ids_list = [0]*max_workers
+        ide_list = [0]*max_workers
+        block_time_list=[0.0]*max_workers  
 
-        for fp in fft:
-            if v.value == 0:
-                fp.join()
-            else:
-                fp.terminate()
+        if v.value == 0:
+            for i in range(max_workers):
+                data_in[i,...],ids_list[i], ide_list[i], block_time_list[i]= raw_data_q.get()
 
-        if v.value == 1:
+            data_back = fft_pool.map(compute_fft_map, range(max_workers))
+
+            for d,s,e,b in zip(data_back, ids_list, ide_list, block_time_list):
+                fft_data_q.put((d,s,e,b))
+        else:
             main_loop_ctl=False
             print("rx_fft.py will exit, clean up....\n")
-            for fp in fft:
-                print("fft processes are terminated")
-                fp.terminate()
+            fft_pool.terminate()
 
     read.terminate()
-    print("get sample processes are terminated")
+    print("Get sample processe was terminated")
     save_fft.terminate()
-    print("save file processes are terminated\n")
+    print("Save file processe was terminated")
     
+    raw_data_q.cancel_join_thread()
+    fft_data_q.cancel_join_thread()
+    print("Clean up multiprocessing Queues.\n")
+
     sys.exit("rx_fft.py exited...")
 
