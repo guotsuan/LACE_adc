@@ -164,12 +164,12 @@ if __name__ == '__main__':
     t0_time = time.time()
 
     # FIXME: how to save time xxxxxx.xxxx properly
-    save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time)
+    save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time, id_tail_before)
     # Saveing parameters
     shutil.copy('./params.py', data_dir)
     file_path_old = data_file_prefix(data_dir, t0_time)
 
-    executor = futures.ProcessPoolExecutor(max_workers=6)
+    executor = futures.ThreadPoolExecutor(max_workers=4)
 
     while forever:
         if file_stop_num < 0:
@@ -284,13 +284,16 @@ if __name__ == '__main__':
         #######################################################################
         time_now = time.perf_counter()
 
-        display_metrics(i,time_before, time_now, s_time, num_lost_all, payload_size)
+        if i == 500:
+            display_metrics(time_before, time_now, s_time, num_lost_all, payload_size)
+            i = 0
 
         time_before = time_now
 
         if (file_stop_num > 0) and (file_cnt > file_stop_num) :
             forever = False
 
+        i += 1
 
     sock.close()
 

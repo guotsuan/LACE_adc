@@ -74,7 +74,7 @@ udp_raw = False
 save_lost = True
 quantity = 'amplitude'
 
-output_fft = True
+output_fft = False
 
 sample_rate = 480e6  # Hz
 data_size = 8192
@@ -132,7 +132,7 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-file_stop_num = 3
+file_stop_num = 3000
 #file_stop_num = -1
 
 # default by hour
