@@ -21,8 +21,6 @@ import os
 
 # the order of the lists is "RAW1, FFT1, RAW2, FFT2"
 
-scale_fs = [0.5/2**15, 1.0, 0.5/2**15, 1.0]
-
 src_ip = ["192.168.90.20", "192.168.90.21", "192.168.90.30", "192.168.90.31"]
 
 src_port = [59000, 59001, 59000, 59001]
@@ -65,63 +63,65 @@ raw2 = 2
 fft2 = 3
 
 # raw1, fft1, raw2, fft2
-output_type = raw1
 
 
 loop_file= False
-save_hdf5 = True
 udp_raw = False
-save_lost = True
-quantity = 'amplitude'
-
-output_fft = False
-
-sample_rate = 480e6  # Hz
-data_size = 8192
 
 max_workers = 4
 
 fft_method = 'cupy'
-if output_fft:
-    fft_npoint = 65536
-    scale_f = 0.5/2**15
+
+# use data_conf to group all the parameters
+data_conf = {}
+data_conf['output_fft'] = False
+data_conf['sample_rate'] = 480e6
+data_conf['data_size'] = 8192
+data_conf['save_hdf5'] = True
+data_conf['quantity'] = 'amplitude'
+data_conf['save_lost'] = True
+
+data_conf['output_type'] = raw1
+
+if data_conf['output_fft']:
+    ###########################################################################
+    #                 parameters for save the fft of raw data                 #
+    ###########################################################################
+    
+    data_conf['fft_npoint'] = 65536
+    data_conf['scale_f'] = 0.5/2**15
 
     # the average time of spectrum
-    av_time = 1.0    # ms
+    data_conf['avg_time'] = 1.0   #ms
     sample_rate_over_100 = 480000
     fft_single_time = fft_npoint / sample_rate_over_100
-    # avg_n = int(av_time/fft_single_time)
-    avg_n = 8
+    data_conf['avg_n'] = 8
+    data_conf['avg_time'] = data_conf.avg_n*fft_single_time
+    # data_conf['avg_n'] = int(av_time/fft_single_time)
 
-    # How many packets of data accumulated before saving
-    # counts_to_save = avg_n*fft_npoint*100
-    # n_frames_per_loop = int(fft_npoint/data_size*2*avg_n)
+    # How many udp packets of data received in one read loop
     n_frames_per_loop = 512
 
-    save_lost = False
+    data_conf.save_lost = False
 
-
+    # every *fft_npoint* will be grouped for FFT
+    # how many fft groups in one read loop
     n_fft_blocks_per_loop = int(data_size*n_frames_per_loop/fft_npoint/2)
 
+    # how many averageed fft groups in one read loop
     n_avg_fft_blocks_per_loop = n_fft_blocks_per_loop // avg_n
 
-    print("n_fft_per_loop", n_fft_blocks_per_loop)
+    print("n_fft_blocks_per_loop", data_conf.n_fft_blocks_per_loop)
 
-    n_blocks_to_save  = 128
-
-
-    #fft_method =['numpy', 'cupy', 'pytorch']
+    # how many fft groups accumulated then save
+    data_conf['n_blocks_to_save']  = 1024
 
 else:
-    # How many packets of data accumulated before saving
-    n_frames_per_loop = 32
-    n_blocks_to_save  = 256
-    quantity = 'voltage'
-
-    # this two parameters have no meaning here, just to make the codes run
-    # n_fft_blocks_per_loop = 1 # sam
-    # n_blocks_to_process = 1
-    # 8192 * 1024 points per file
+    # How many udp packets of data received in one read loop
+    data_conf['n_frames_per_loop'] = 16 
+    # how many raw data read loops accumulated then save
+    data_conf['n_blocks_to_save']  = 512
+    data_conf['quantity'] = 'voltage'
 
 # the size of socket buffer for recieving data
 # maximum is 1610612736
@@ -134,7 +134,7 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-file_stop_num = 300
+data_conf['file_stop_num'] = 30
 #file_stop_num = -1
 
 # default by hour

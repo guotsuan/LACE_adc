@@ -20,12 +20,7 @@ import torch
 import mkl_fft
 from multiprocessing import shared_memory
 
-from params import output_fft,split_by_min, quantity, sample_rate
-if output_fft:
-    from params import  n_frames_per_loop,fft_method, data_size, \
-        n_fft_blocks_per_loop
-else:
-    from params import  n_frames_per_loop, data_size
+from params import split_by_min, data_conf
 
 def save_meta_file(fname, stime, s_id):
     ff = h5.File(fname, 'w')
@@ -35,7 +30,11 @@ def save_meta_file(fname, stime, s_id):
     ff.create_dataset('id_start', data=s_id)
     ff.close()
 
-def display_metrics(time_before,time_now, s_time, num_lost_all, payload_size):
+def display_metrics(time_before,time_now, s_time, num_lost_all, dconf):
+
+    sample_rate = dconf['sample_rate']
+    n_frames_per_loop = dconf['n_frames_per_loop']
+    payload_size = dconf['payload_size']
 
     size_of_data_per_sec = sample_rate * 2  # 2 byte times 480e6 points/s
     acq_data_size = n_frames_per_loop * payload_size
@@ -231,6 +230,13 @@ def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
     else:
         np.save(file_name +'.npy', data)
 
+def save_raw_hdf5(fout, raw_data_to_file, raw_block_time_file,
+        raw_id_to_file):
+        f=h5.File(fout +'.h5', 'w')
+        dset = f.create_dataset(quantity, data=raw_data_to_file)
+        dset = f.create_dataset('block_time', data=raw_block_time_file)
+        dset = f.create_dataset('block_ids', data=raw_id_to_file)
+        f.close()
 
 def dumpdata(file_name, data, id_data, stime, t1, nb, 
         save_hdf5=False, header=None):
@@ -271,10 +277,15 @@ def compute_fft(data_in, fft_length, i):
             # fft_out_q.put((fft_data, ids, ide, block_time))
 
 
-def get_sample_data(sock,raw_data_q, forever,   #{{{
-        payload_size,data_size, 
-        id_size, n_frames_per_loop, data_type, id_head_before,
-        id_tail_before):
+def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,data_size, 
+
+    n_frames_per_loop = dconf['n_frames_per_loop']
+    payload_size = dconf['payload_size']
+    data_size = dconf['data_size']
+    id_size = dconf['id_size']
+    data_type = dconf['data_type']
+    id_tail_before = dconf['id_tail_before']
+    output_fft = dconf['output_fft']
 
     udp_payload = bytearray(n_frames_per_loop*payload_size)
     udp_data = bytearray(n_frames_per_loop*data_size)
@@ -299,8 +310,6 @@ def get_sample_data(sock,raw_data_q, forever,   #{{{
 # the period of the consecutive ID is 2**32 - 1 = 4294967295
     cycle = 4294967295
     max_id = 0
-    forever = True
-
 
     while True:
 
@@ -363,7 +372,7 @@ def get_sample_data(sock,raw_data_q, forever,   #{{{
 
         if i == 3000:
             display_metrics(time_before, time_now, s_time, num_lost_all, 
-                    payload_size)
+                    data_conf)
             i = 0
 
         time_before = time_now
