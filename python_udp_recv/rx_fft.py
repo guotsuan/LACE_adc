@@ -147,7 +147,7 @@ def save_fft_data(fft_out_q, n_blocks_to_save, fft_npoint, avg_n,
         fft_id_to_file[nn,0] = ids
         fft_id_to_file[nn,1] = ide
 
-        fft_block_time_to_file[nn] = block_time
+        fft_block_time_to_file[nn] = epoctime2date(block_time)
         i1 = nn*ngrp
         i2 = i1+ngrp
         fft_data_to_file[i1:i2,...] =fft_out

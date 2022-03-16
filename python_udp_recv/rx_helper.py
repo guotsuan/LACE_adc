@@ -60,7 +60,7 @@ def prepare_folder(indir):
 
 
 def data_file_prefix(indir, stime):
-    dt = datetime.datetime.utcfromtimestamp(time.time())
+    dt = datetime.datetime.utcfromtimestamp(stime)
     folder_level1 = dt.strftime("%Y-%m-%d")
     folder_level2 = dt.strftime("%H")
     if split_by_min:
@@ -307,7 +307,9 @@ def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,d
     time_before = s_time
     t0_time = time.time()
 
-# the period of the consecutive ID is 2**32 - 1 = 4294967295
+    print("get sampe pid: ", os.getpid())
+
+    # the period of the consecutive ID is 2**32 - 1 = 4294967295
     cycle = 4294967295
     max_id = 0
 
@@ -362,7 +364,8 @@ def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,d
             print(id_arr[bad-2:bad+3])
             num_lost_all += num_lost_p
         else:
-            block_time = epoctime2date((block_time1 + block_time2)/2.)
+            # block_time = epoctime2date((block_time1 + block_time2)/2.)
+            block_time = (block_time1 + block_time2)/2.
             if output_fft:
                 raw_data_q.put((udp_data_arr,id_arr[0], id_arr[-1], block_time))
             else:
@@ -370,7 +373,8 @@ def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,d
 
         time_now = time.perf_counter()
 
-        if i == 3000:
+        if i == 6000:
+            block_time = epoctime2date((block_time1 + block_time2)/2.)
             display_metrics(time_before, time_now, s_time, num_lost_all, 
                     data_conf)
             i = 0

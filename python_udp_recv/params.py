@@ -134,7 +134,7 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-data_conf['file_stop_num'] = 300
+data_conf['file_stop_num'] = 1000
 #file_stop_num = -1
 
 # default by hour
