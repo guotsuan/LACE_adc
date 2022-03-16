@@ -114,11 +114,13 @@ if output_fft:
 
 else:
     # How many packets of data accumulated before saving
-    n_frames_per_loop = 8192
+    n_frames_per_loop = 32
+    n_blocks_to_save  = 256
+    quantity = 'voltage'
 
     # this two parameters have no meaning here, just to make the codes run
-    n_fft_blocks_per_loop = 1 # sam
-    n_blocks_to_process = 1
+    # n_fft_blocks_per_loop = 1 # sam
+    # n_blocks_to_process = 1
     # 8192 * 1024 points per file
 
 # the size of socket buffer for recieving data
@@ -132,7 +134,7 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-file_stop_num = 3000
+file_stop_num = 300
 #file_stop_num = -1
 
 # default by hour

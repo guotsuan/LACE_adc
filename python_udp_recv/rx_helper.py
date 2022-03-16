@@ -16,12 +16,16 @@ import os
 import datetime, time
 import termios, fcntl
 import cupy as cp
-from params import split_by_min, quantity, sample_rate, \
-        n_frames_per_loop,fft_method, data_size, n_fft_blocks_per_loop
 import torch
 import mkl_fft
 from multiprocessing import shared_memory
 
+from params import output_fft,split_by_min, quantity, sample_rate
+if output_fft:
+    from params import  n_frames_per_loop,fft_method, data_size, \
+        n_fft_blocks_per_loop
+else:
+    from params import  n_frames_per_loop, data_size
 
 def save_meta_file(fname, stime, s_id):
     ff = h5.File(fname, 'w')
@@ -266,3 +270,103 @@ def compute_fft(data_in, fft_length, i):
         # with wlock:
             # fft_out_q.put((fft_data, ids, ide, block_time))
 
+
+def get_sample_data(sock,raw_data_q, forever,   #{{{
+        payload_size,data_size, 
+        id_size, n_frames_per_loop, data_type, id_head_before,
+        id_tail_before):
+
+    udp_payload = bytearray(n_frames_per_loop*payload_size)
+    udp_data = bytearray(n_frames_per_loop*data_size)
+    udp_id = bytearray(n_frames_per_loop*id_size)
+
+    payload_buff = memoryview(udp_payload)
+    data_buff = memoryview(udp_data)
+    id_buff = memoryview(udp_id)
+
+    payload_buff_head = payload_buff
+    
+    i = 0
+    file_cnt = 0
+    fft_block_cnt = 0
+    marker = 0
+    num_lost_all = 0.0
+
+    s_time = time.perf_counter()
+    time_before = s_time
+    t0_time = time.time()
+
+# the period of the consecutive ID is 2**32 - 1 = 4294967295
+    cycle = 4294967295
+    max_id = 0
+    forever = True
+
+
+    while True:
+
+        pi1 = 0
+        pi2 = data_size
+
+        hi1 = 0
+        hi2 = id_size
+
+        count_down = n_frames_per_loop
+        payload_buff = payload_buff_head
+        block_time1 = time.time()
+
+        while count_down:
+            sock.recv_into(payload_buff, payload_size)
+            data_buff[pi1:pi2] = payload_buff[0:data_size]
+            id_buff[hi1:hi2] = payload_buff[payload_size - id_size:payload_size]
+
+            pi1 += data_size
+            pi2 += data_size
+            hi1 += id_size
+            hi2 += id_size
+
+            count_down -= 1
+
+        block_time2 = time.time()
+        id_arr = np.uint32(np.frombuffer(udp_id,dtype='>u4'))
+
+        diff = id_arr[0] - id_tail_before
+        if (diff == 1) or (diff == - cycle ):
+            pass
+        else:
+            print("block is not connected", id_tail_before, id_arr[0])
+            print("program last ", time.time() - s_time)
+            num_lost_all += 1
+
+        # update the ids before for next section
+        id_head_before = id_arr[0]
+        id_tail_before = id_arr[-1]
+
+        udp_data_arr = np.frombuffer(udp_data, dtype=data_type)
+        id_offsets = np.diff(id_arr) % cycle
+
+        idx = id_offsets > 1
+
+        num_lost_p = len(id_offsets[idx])
+
+        if (num_lost_p > 0):
+            bad=np.arange(id_offsets.size)[idx][0]
+            print(id_arr[bad-2:bad+3])
+            num_lost_all += num_lost_p
+        else:
+            block_time = epoctime2date((block_time1 + block_time2)/2.)
+            if output_fft:
+                raw_data_q.put((udp_data_arr,id_arr[0], id_arr[-1], block_time))
+            else:
+                raw_data_q.put((udp_data_arr,id_arr, block_time))
+
+        time_now = time.perf_counter()
+
+        if i == 3000:
+            display_metrics(time_before, time_now, s_time, num_lost_all, 
+                    payload_size)
+            i = 0
+
+        time_before = time_now
+        i +=1
+
+        # }}}
