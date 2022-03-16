@@ -118,7 +118,7 @@ if data_conf['output_fft']:
 
 else:
     # How many udp packets of data received in one read loop
-    data_conf['n_frames_per_loop'] = 16 
+    data_conf['n_frames_per_loop'] = 32
     # how many raw data read loops accumulated then save
     data_conf['n_blocks_to_save']  = 512
     data_conf['quantity'] = 'voltage'
@@ -134,7 +134,7 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-data_conf['file_stop_num'] = 30
+data_conf['file_stop_num'] = 300
 #file_stop_num = -1
 
 # default by hour
