@@ -68,13 +68,13 @@ fft2 = 3
 loop_file= False
 udp_raw = False
 
-max_workers = 4
+max_workers = 5
 
 fft_method = 'cupy'
 
 # use data_conf to group all the parameters
 data_conf = {}
-data_conf['output_fft'] = False
+data_conf['output_fft'] = True
 data_conf['sample_rate'] = 480e6
 data_conf['data_size'] = 8192
 data_conf['save_hdf5'] = True
@@ -94,24 +94,27 @@ if data_conf['output_fft']:
     # the average time of spectrum
     data_conf['avg_time'] = 1.0   #ms
     sample_rate_over_100 = 480000
-    fft_single_time = fft_npoint / sample_rate_over_100
+    fft_single_time = data_conf['fft_npoint'] / sample_rate_over_100
     data_conf['avg_n'] = 8
-    data_conf['avg_time'] = data_conf.avg_n*fft_single_time
+    data_conf['avg_time'] = data_conf['avg_n']*fft_single_time
     # data_conf['avg_n'] = int(av_time/fft_single_time)
 
     # How many udp packets of data received in one read loop
-    n_frames_per_loop = 512
+    data_conf['n_frames_per_loop'] = 256
 
-    data_conf.save_lost = False
+    data_conf['save_lost'] = False
 
     # every *fft_npoint* will be grouped for FFT
     # how many fft groups in one read loop
-    n_fft_blocks_per_loop = int(data_size*n_frames_per_loop/fft_npoint/2)
+    data_conf['n_fft_blocks_per_loop'] = \
+            int(data_conf['data_size']* \
+                data_conf['n_frames_per_loop']/data_conf['fft_npoint']/2)
 
     # how many averageed fft groups in one read loop
-    n_avg_fft_blocks_per_loop = n_fft_blocks_per_loop // avg_n
+    data_conf['n_avg_fft_blocks_per_loop'] = \
+            data_conf['n_fft_blocks_per_loop'] // data_conf['avg_n']
 
-    print("n_fft_blocks_per_loop", data_conf.n_fft_blocks_per_loop)
+    print("n_fft_blocks_per_loop", data_conf['n_fft_blocks_per_loop'])
 
     # how many fft groups accumulated then save
     data_conf['n_blocks_to_save']  = 1024
@@ -134,7 +137,7 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-data_conf['file_stop_num'] = 1000
+data_conf['file_stop_num'] = 100
 #file_stop_num = -1
 
 # default by hour

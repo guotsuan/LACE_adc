@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
   uint64_t file_p{0};
   uint64_t disc_cnt{0};
   uint64_t lost_p{0};
-  const int intervalUs = 1000000;
+  const int intervalUs = 6000000;
   const int block_size = 4096;
   const int B1M = 1024*1024;
   const int load_size = 8200;
@@ -148,30 +148,30 @@ start_over:
     SeqNo2 = SeqNo;
    
     //auto start = chrono::steady_clock::now();
-    if ((RxPackets) % block_size == 0) {
-        if (loop_files)
-            filenum = filenum % 5;
-        write_cnt = 0;
-        file_p = 0;
-        out.open("output_" + std::to_string(filenum), 
-                std::ofstream::binary|std::ofstream::trunc);
-    }
+    //if ((RxPackets) % block_size == 0) {
+        //if (loop_files)
+            //filenum = filenum % 5;
+        //write_cnt = 0;
+        //file_p = 0;
+        //out.open("output_" + std::to_string(filenum), 
+                //std::ofstream::binary|std::ofstream::trunc);
+    //}
 
 
-    if (out.is_open()) {
-        out.seekp(file_p);
-        out.write(buffer, load_size);
-        //out.flush();  is no obviously helpful
-        file_p += load_size;
-        write_cnt++;
-    }
+    //if (out.is_open()) {
+        //out.seekp(file_p);
+        //out.write(buffer, load_size);
+        ////out.flush();  is no obviously helpful
+        //file_p += load_size;
+        //write_cnt++;
+    //}
 
 
-    if (write_cnt == block_size && out.is_open()) {
-        out.close();
-        if (!(skippable && bad_block))
-            filenum += 1;
-    }
+    //if (write_cnt == block_size && out.is_open()) {
+        //out.close();
+        //if (!(skippable && bad_block))
+            //filenum += 1;
+    //}
 
     //auto end = chrono::steady_clock::now();
 
@@ -179,16 +179,16 @@ start_over:
     if ((RxPackets % 100) == 0)
       USecs = UpdateTimer.timeus();
 
-    //if (USecs >= intervalUs) {
-      //RxBytesTotal += RxBytes;
-      //printf("Rx rate: %.2f Mbps, rx %" PRIu64 " MB (total: %" PRIu64
-             //" MB) %" PRIu64 " usecs, lost %" PRIu64 " ps of total %" PRIu64 " \n",
-             //RxBytes * 8.0 / (USecs / 1000000.0) / B1M, RxBytes / B1M, RxBytesTotal / B1M,
-             //USecs, lost_p, RxPackets);
-      //RxBytes = 0;
-      //UpdateTimer.now();
-      //USecs = UpdateTimer.timeus();
-    //}
+    if (USecs >= intervalUs) {
+      RxBytesTotal += RxBytes;
+      printf("Rx rate: %.2f Mbps, rx %" PRIu64 " MB (total: %" PRIu64
+             " MB) %" PRIu64 " usecs, lost %" PRIu64 " ps of total %" PRIu64 " \n",
+             RxBytes * 8.0 / (USecs / 1000000.0) / B1M, RxBytes / B1M, RxBytesTotal / B1M,
+             USecs, lost_p, RxPackets);
+      RxBytes = 0;
+      UpdateTimer.now();
+      USecs = UpdateTimer.timeus();
+    }
 
   if (ReadSize > 0) RxPackets += UINT64_C(1);
 

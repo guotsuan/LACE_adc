@@ -20,7 +20,7 @@ import torch
 import mkl_fft
 from multiprocessing import shared_memory
 
-from params import split_by_min, data_conf
+from params import split_by_min, data_conf,fft_method
 
 def save_meta_file(fname, stime, s_id):
     ff = h5.File(fname, 'w')
@@ -114,11 +114,11 @@ def compute_fft_data2(data, avg_n, fft_length, scale_f):
         fft_in_data = torch.from_numpy(fft_in_data).to(device)
 
         if quantity == 'amplitude':
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
-                dim=-1).cpu().detach().numpy()), axis=1)
+            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
+                dim=-1).cpu().detach().numpy())
         elif quantity == 'power': 
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
-                dim=-1).detach().cpu().numpy())**2, axis=1)
+            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
+                dim=-1).detach().cpu().numpy())**2
 
     else:
         if quantity == 'amplitude':
@@ -135,19 +135,19 @@ def compute_fft_data_only(fft_in_data):
     
     if fft_method =='cupy':
         fft_in_data = cp.array(fft_in_data)
-        if quantity == 'amplitude':
+        if data_conf['quantity'] == 'amplitude':
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
-        elif quantity == 'power': 
+        elif data_conf['quantity'] == 'power': 
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2 
                     
     elif fft_method == 'pytorch':
         device = torch.device('cuda')
         fft_in_data = torch.from_numpy(fft_in_data).to(device)
 
-        if quantity == 'amplitude':
+        if data_conf['quantity'] == 'amplitude':
             mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
                 dim=-1).cpu().detach().numpy()), axis=1)
-        elif quantity == 'power': 
+        elif data_conf['quantity'] == 'power': 
             mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
                 dim=-1).detach().cpu().numpy())**2, axis=1)
 
@@ -264,9 +264,35 @@ def dumpdata(file_name, data, id_data, stime, t1, nb,
 
 
 def compute_fft(data_in, fft_length, i):
-    data = data_in[i,...].reshape(-1, fft_length)
-    fft_data = compute_fft_data_only(data)
-    return fft_data
+
+    fft_in_data = data_conf['scale_f']*data_in[i,...].reshape(-1, fft_length)
+    
+    if fft_method =='cupy':
+        fft_in_data = cp.array(fft_in_data)
+        if data_conf['quantity'] == 'amplitude':
+            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
+        elif data_conf['quantity'] == 'power': 
+            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2 
+                    
+    elif fft_method == 'pytorch':
+        device = torch.device('cuda')
+        fft_in_data = torch.from_numpy(fft_in_data).to(device)
+
+        if data_conf['quantity'] == 'amplitude':
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+                dim=-1).cpu().detach().numpy()), axis=1)
+        elif data_conf['quantity'] == 'power': 
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+                dim=-1).detach().cpu().numpy())**2, axis=1)
+
+    else:
+        if quantity == 'amplitude':
+            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
+            # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
+        elif quantity == 'power': 
+            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
+
+    return mean_fft_result
 
     # if not qq.empty():
         # with lock:
@@ -352,7 +378,6 @@ def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,d
         id_head_before = id_arr[0]
         id_tail_before = id_arr[-1]
 
-        udp_data_arr = np.frombuffer(udp_data, dtype=data_type)
         id_offsets = np.diff(id_arr) % cycle
 
         idx = id_offsets > 1
@@ -364,6 +389,7 @@ def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,d
             print(id_arr[bad-2:bad+3])
             num_lost_all += num_lost_p
         else:
+            udp_data_arr = np.frombuffer(udp_data, dtype=data_type)
             # block_time = epoctime2date((block_time1 + block_time2)/2.)
             block_time = (block_time1 + block_time2)/2.
             if output_fft:
