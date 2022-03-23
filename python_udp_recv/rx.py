@@ -31,7 +31,7 @@ from rx_helper import *
 data_dir = ''
 good = 0
 
-if output_fft:
+if data_conf['output_fft']:
     sys.exit("wrong program, please use rx_fft.py or change output_fft to False")
 
 args_len = len(sys.argv)
@@ -45,15 +45,15 @@ elif args_len == 3:
         input_type = int(args[0])
 
         data_dir = sys.argv[2]
-        output_type = input_type
+        output_sel = input_type
     except:
         print("input type must be one of 0,1,2,3")
 
-    if output_type > 3:
+    if output_sel > 3:
         print("input type", input_type, " must be one of 0,1,2,3")
         sys.exit()
     else:
-        print("recieving output type from input: ", labels[output_type])
+        print("recieving output type from input: ", labels[output_sel])
         print("saving into the folder: ", data_dir)
 
 
@@ -63,19 +63,23 @@ else:
     prepare_folder(data_dir)
 
 
-src_udp_ip = src_ip[output_type]
-src_udp_port = src_port[output_type]
+data_conf['output_sel'] = output_sel
 
-udp_ip = dst_ip[output_type]
-udp_port = dst_port[output_type]
+src_udp_ip = src_ip[output_sel]
+src_udp_port = src_port[output_sel]
 
-if output_type % 2 == 0:
+udp_ip = dst_ip[output_sel]
+udp_port = dst_port[output_sel]
+
+if output_sel % 2 == 0:
     data_type = '>i2'
-    fft_data = False
 else:
     data_type = '>u4'
-    fft_data = True
 
+n_frames_per_loop = data_conf['n_frames_per_loop']
+n_blocks_to_save = data_conf['n_blocks_to_save']
+quantity = data_conf['quantity']
+file_stop_num = data_conf['file_stop_num']
 
 # set the input of keyboard no-blocking
 if file_stop_num < 0:
@@ -92,15 +96,21 @@ id_size = 4
 # seprator size
 sep_size = 4
 payload_size = 8200
-data_size = payload_size - id_size - sep_size
 header_size = 28
 block_size = 1024
 warmup_size = 4096
 
 num_lost_all = 0.0
 
+data_conf['payload_size'] = payload_size
+data_conf['id_size'] = id_size
+data_size = payload_size - id_size - sep_size
+data_conf['data_size'] = data_size
+
 sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
+
+
 
 if err:
     sock.close()
@@ -188,7 +198,7 @@ if __name__ == '__main__':
 
         count_down = n_frames_per_loop
         payload_buff = payload_buff_head
-        block_time = time.time()
+        block_time1 = time.time()
 
         while count_down:
             sock.recv_into(payload_buff, payload_size)
@@ -202,6 +212,7 @@ if __name__ == '__main__':
 
             count_down -= 1
 
+        block_time2 = time.time()
         id_arr = np.uint32(np.frombuffer(udp_id,dtype='>u4'))
 
         diff = id_arr[0] - id_tail_before
@@ -224,8 +235,9 @@ if __name__ == '__main__':
         idx = id_offsets > 1
 
         num_lost_p = len(id_offsets[idx])
+        block_time = (block_time1 + block_time2)/2.
         if (num_lost_p > 0):
-            if save_lost:
+            if data_conf['save_lost']:
                 no_lost = True
             else:
                 no_lost = False
@@ -242,40 +254,38 @@ if __name__ == '__main__':
         #######################################################################
         
         if loop_file:
-            k = file_cnt % 4
+            k = file_cnt % 8
         else:
             k = file_cnt
 
-        if pstart:
-            writefile.result()
-            pstart=False
+        # if pstart:
+            # writefile.result()
+            # pstart=False
 
         if no_lost:
-            file_path = data_file_prefix(data_dir, block_time)
-            fout = os.path.join(file_path, labels[output_type] +
-                    '_' + str(k))
+            # file_path = data_file_prefix(data_dir, block_time)
+            # fout = os.path.join(file_path, labels[output_sel] +
+                    # '_' + str(k))
 
-            if not pstart:
+            # if not pstart:
 
-                writefile=executor.submit(dumpdata, 
-                        fout,
-                        udp_payload_arr,
-                        id_arr,
-                        t0_time, block_time, num_lost_p, save_hdf5)
+                # writefile=executor.submit(dumpdata_hdf5, 
+                        # fout,
+                        # udp_payload_arr,
+                        # id_arr,
+                        # block_time, num_lost_p)
 
-                pstart = True
+                # pstart = True
 
-                if file_path == file_path_old:
-                    file_cnt += 1
-                else:
-                    file_cnt = 0
+            if file_path == file_path_old:
+                file_cnt += 1
+            else:
+                file_cnt = 0
 
-                file_path_old = file_path
+            file_path_old = file_path
 
         else:
             print("block is dropped")
-
-
 
 
 
@@ -285,7 +295,8 @@ if __name__ == '__main__':
         time_now = time.perf_counter()
 
         if i == 500:
-            display_metrics(time_before, time_now, s_time, num_lost_all, payload_size)
+            display_metrics(time_before, time_now, s_time, num_lost_all, 
+                    data_conf)
             i = 0
 
         time_before = time_now

@@ -22,7 +22,8 @@ struct {
   int UDPPort{60000};
   int DataSize{8200};
   //int SocketBufferSize{1073741824};
-  int SocketBufferSize{7168000};
+  int SocketBufferSize{1610612736};
+  //int SocketBufferSize{7168000};
 
 } Settings;
 
@@ -56,7 +57,7 @@ int main(int argc, char *argv[]) {
   uint64_t disc_cnt{0};
   uint64_t lost_p{0};
   const int intervalUs = 6000000;
-  const int block_size = 4096;
+  const int block_size = 2048;
   const int B1M = 1024*1024;
   const int load_size = 8200;
   const int packet_size = 8200;
@@ -101,7 +102,7 @@ start_over:
   //SeqNo2 = ntohs(*(uint16_t *)(buffer + 4));
   SeqNo2 = ntohl(*(uint32_t *)(buffer + id_offset));
 
-  printf("S1, S2, %i, %i", SeqNo1, SeqNo2);
+  //printf("S1, S2, %i, %i", SeqNo1, SeqNo2);
   //assert(ReadSize1 == ReadSize2);
 
   for (;;) {
@@ -120,7 +121,7 @@ start_over:
     }
 
 
-    //printf("seqno %i %i \n", SeqNo, SeqNo2);
+    //printf("seqno %"PRIu32"  %"PRIu32" \n", SeqNo, SeqNo2);
     //
     status_before = SeqNo2 - SeqNo1;
     status_now = SeqNo - SeqNo2;
@@ -147,31 +148,31 @@ start_over:
     SeqNo1 = SeqNo2;
     SeqNo2 = SeqNo;
    
-    //auto start = chrono::steady_clock::now();
-    //if ((RxPackets) % block_size == 0) {
-        //if (loop_files)
-            //filenum = filenum % 5;
-        //write_cnt = 0;
-        //file_p = 0;
-        //out.open("output_" + std::to_string(filenum), 
-                //std::ofstream::binary|std::ofstream::trunc);
-    //}
+    auto start = chrono::steady_clock::now();
+    if ((RxPackets) % block_size == 0) {
+        if (loop_files)
+            filenum = filenum % 10;
+        write_cnt = 0;
+        file_p = 0;
+        out.open("/dev/shm/test/output_" + std::to_string(filenum), 
+                std::ofstream::binary|std::ofstream::trunc);
+    }
 
 
-    //if (out.is_open()) {
-        //out.seekp(file_p);
-        //out.write(buffer, load_size);
-        ////out.flush();  is no obviously helpful
-        //file_p += load_size;
-        //write_cnt++;
-    //}
+    if (out.is_open()) {
+        out.seekp(file_p);
+        out.write(buffer, load_size);
+        //out.flush();  is no obviously helpful
+        file_p += load_size;
+        write_cnt++;
+    }
 
 
-    //if (write_cnt == block_size && out.is_open()) {
-        //out.close();
-        //if (!(skippable && bad_block))
-            //filenum += 1;
-    //}
+    if (write_cnt == block_size && out.is_open()) {
+        out.close();
+        if (!(skippable && bad_block))
+            filenum += 1;
+    }
 
     //auto end = chrono::steady_clock::now();
 

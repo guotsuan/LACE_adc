@@ -65,7 +65,7 @@ fft2 = 3
 # raw1, fft1, raw2, fft2
 
 
-loop_file= False
+loop_file= True
 udp_raw = False
 
 max_workers = 5
@@ -74,7 +74,7 @@ fft_method = 'cupy'
 
 # use data_conf to group all the parameters
 data_conf = {}
-data_conf['output_fft'] = True
+data_conf['output_fft'] = False
 data_conf['sample_rate'] = 480e6
 data_conf['data_size'] = 8192
 data_conf['save_hdf5'] = True
@@ -100,7 +100,7 @@ if data_conf['output_fft']:
     # data_conf['avg_n'] = int(av_time/fft_single_time)
 
     # How many udp packets of data received in one read loop
-    data_conf['n_frames_per_loop'] = 256
+    data_conf['n_frames_per_loop'] = 512
 
     data_conf['save_lost'] = False
 
@@ -117,13 +117,13 @@ if data_conf['output_fft']:
     print("n_fft_blocks_per_loop", data_conf['n_fft_blocks_per_loop'])
 
     # how many fft groups accumulated then save
-    data_conf['n_blocks_to_save']  = 1024
+    data_conf['n_blocks_to_save']  = 512
 
 else:
     # How many udp packets of data received in one read loop
-    data_conf['n_frames_per_loop'] = 32
+    data_conf['n_frames_per_loop'] =  16
     # how many raw data read loops accumulated then save
-    data_conf['n_blocks_to_save']  = 512
+    data_conf['n_blocks_to_save']  = 2048
     data_conf['quantity'] = 'voltage'
 
 # the size of socket buffer for recieving data
@@ -137,7 +137,7 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-data_conf['file_stop_num'] = 100
+data_conf['file_stop_num'] = 50000
 #file_stop_num = -1
 
 # default by hour
