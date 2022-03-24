@@ -342,6 +342,23 @@ def dumpdata_hdf5(file_name, data, id_data, block_time):
 
         f.close()
 
+def dumpdata_fft_hdf5(file_name, data, id_data, block_time):
+
+        avg_n = data_conf['avg_n']
+        fft_npoint = data_conf['fft_npoint']
+        quantity = data_conf['quantity']
+
+        f=h5.File(file_name +'.h5', 'w')
+
+        dset = f.create_dataset(quantity, data=data)
+        dset.attrs['avg_n'] = avg_n
+        dset.attrs['fft_length'] =  fft_npoint
+
+        dset = f.create_dataset('block_time', data=block_time)
+        dset = f.create_dataset('block_ids', data=id_data)
+
+        f.close()
+
 
 def compute_fft(data_in, fft_length, i):
 
@@ -472,9 +489,9 @@ def get_sample_data_new(sock,dconf):                 #{{{ payload_size,data_size
             # block_time = epoctime2date((block_time1 + block_time2)/2.)
             block_time = (block_time1 + block_time2)/2.
             if output_fft:
-                raw_data_q.put_nowait((udp_data_arr,id_arr[0], id_arr[-1], block_time))
+                raw_data_q.put((udp_data_arr,id_arr[0], id_arr[-1], block_time))
             else:
-                raw_data_q.put_nowait((udp_data_arr,id_arr, block_time))
+                raw_data_q.put((udp_data_arr,id_arr, block_time))
 
         time_now = time.perf_counter()
 
@@ -577,7 +594,8 @@ def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,d
         else:
             udp_data_arr = np.frombuffer(udp_data, dtype=data_type)
             # block_time = epoctime2date((block_time1 + block_time2)/2.)
-            block_time = (block_time1 + block_time2)/2.
+            # block_time = (block_time1 + block_time2)/2.
+            block_time = block_time1 
             if output_fft:
                 raw_data_q.put_nowait((udp_data_arr,id_arr[0], id_arr[-1], block_time))
             else:

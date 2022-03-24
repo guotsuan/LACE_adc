@@ -100,7 +100,7 @@ if data_conf['output_fft']:
     # data_conf['avg_n'] = int(av_time/fft_single_time)
 
     # How many udp packets of data received in one read loop
-    data_conf['n_frames_per_loop'] = 512
+    data_conf['n_frames_per_loop'] = 128
 
     data_conf['save_lost'] = False
 
@@ -117,11 +117,11 @@ if data_conf['output_fft']:
     print("n_fft_blocks_per_loop", data_conf['n_fft_blocks_per_loop'])
 
     # how many fft groups accumulated then save
-    data_conf['n_blocks_to_save']  = 512
+    data_conf['n_blocks_to_save']  = 32
 
 else:
     # How many udp packets of data received in one read loop
-    data_conf['n_frames_per_loop'] =  16
+    data_conf['n_frames_per_loop'] = 16 
     # how many raw data read loops accumulated then save
     data_conf['n_blocks_to_save']  = 2048
     data_conf['quantity'] = 'voltage'
@@ -141,7 +141,7 @@ data_conf['file_stop_num'] = 50000
 #file_stop_num = -1
 
 # default by hour
-split_by_min = False
+split_by_min = True
 
 
 class bcolors:
