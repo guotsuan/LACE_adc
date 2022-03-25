@@ -65,16 +65,16 @@ fft2 = 3
 # raw1, fft1, raw2, fft2
 
 
-loop_file= True
+loop_file= False
 udp_raw = False
 
-max_workers = 5
+max_workers = 8
 
 fft_method = 'cupy'
 
 # use data_conf to group all the parameters
 data_conf = {}
-data_conf['output_fft'] = False
+data_conf['output_fft'] = True
 data_conf['sample_rate'] = 480e6
 data_conf['data_size'] = 8192
 data_conf['save_hdf5'] = True
@@ -88,19 +88,19 @@ if data_conf['output_fft']:
     #                 parameters for save the fft of raw data                 #
     ###########################################################################
     
-    data_conf['fft_npoint'] = 65536
+    data_conf['fft_npoint'] = 16384
     data_conf['scale_f'] = 0.5/2**15
 
     # the average time of spectrum
     data_conf['avg_time'] = 1.0   #ms
     sample_rate_over_100 = 480000
     fft_single_time = data_conf['fft_npoint'] / sample_rate_over_100
-    data_conf['avg_n'] = 8
+    data_conf['avg_n'] = 4
     data_conf['avg_time'] = data_conf['avg_n']*fft_single_time
     # data_conf['avg_n'] = int(av_time/fft_single_time)
 
     # How many udp packets of data received in one read loop
-    data_conf['n_frames_per_loop'] = 128
+    data_conf['n_frames_per_loop'] = 32
 
     data_conf['save_lost'] = False
 
@@ -121,9 +121,9 @@ if data_conf['output_fft']:
 
 else:
     # How many udp packets of data received in one read loop
-    data_conf['n_frames_per_loop'] = 16 
+    data_conf['n_frames_per_loop'] = 1024
     # how many raw data read loops accumulated then save
-    data_conf['n_blocks_to_save']  = 2048
+    data_conf['n_blocks_to_save']  = 1
     data_conf['quantity'] = 'voltage'
 
 # the size of socket buffer for recieving data

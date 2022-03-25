@@ -327,17 +327,17 @@ def dumpdata_hdf5(file_name, data, id_data, block_time):
 
         # print("save raw pid: ", os.getpid())
 
-        n_frames_per_loop = data_conf['n_frames_per_loop']
-        data_size = data_conf['data_size']
-        n_blocks_to_save  = data_conf['n_blocks_to_save']
+        # n_frames_per_loop = data_conf['n_frames_per_loop']
+        # data_size = data_conf['data_size']
+        # n_blocks_to_save  = data_conf['n_blocks_to_save']
         quantity = data_conf['quantity']
-        output_sel = data_conf['output_sel']
-        file_stop_num = data_conf['file_stop_num']
+        # output_sel = data_conf['output_sel']
+        # file_stop_num = data_conf['file_stop_num']
 
         f=h5.File(file_name +'.h5','w')
         dset = f.create_dataset(quantity, data=data)
-        dset = f.create_dataset('block_time', data=block_time)
-        # dset.attrs['block_time'] = epoctime2date(block_time)
+        # dset = f.create_dataset('block_time', data=block_time)
+        dset.attrs['block_time'] = epoctime2date(block_time)
         dset = f.create_dataset('block_ids', data=id_data)
 
         f.close()
@@ -383,10 +383,10 @@ def compute_fft(data_in, fft_length, i):
                 dim=-1).detach().cpu().numpy())**2, axis=1)
 
     else:
-        if quantity == 'amplitude':
+        if data_conf['quantity'] == 'amplitude':
             mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
             # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
-        elif quantity == 'power': 
+        elif data_conf['quantity'] == 'power': 
             mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
 
     return mean_fft_result
