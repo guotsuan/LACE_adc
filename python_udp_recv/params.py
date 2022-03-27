@@ -65,12 +65,12 @@ fft2 = 3
 # raw1, fft1, raw2, fft2
 
 
-loop_file= False
+loop_file= True
 udp_raw = False
 
 max_workers = 8
 
-fft_method = 'cupy'
+fft_method = 'numpy'
 
 # use data_conf to group all the parameters
 data_conf = {}
@@ -82,25 +82,24 @@ data_conf['quantity'] = 'amplitude'
 data_conf['save_lost'] = True
 
 data_conf['output_type'] = raw1
+data_conf['scale_f'] = 0.5/2**15
+data_conf['fft_npoint'] = 65536
+data_conf['avg_n'] = 8
+sample_rate_over_100 = 480000
 
 if data_conf['output_fft']:
     ###########################################################################
     #                 parameters for save the fft of raw data                 #
     ###########################################################################
     
-    data_conf['fft_npoint'] = 16384
-    data_conf['scale_f'] = 0.5/2**15
-
     # the average time of spectrum
     data_conf['avg_time'] = 1.0   #ms
-    sample_rate_over_100 = 480000
     fft_single_time = data_conf['fft_npoint'] / sample_rate_over_100
-    data_conf['avg_n'] = 4
     data_conf['avg_time'] = data_conf['avg_n']*fft_single_time
     # data_conf['avg_n'] = int(av_time/fft_single_time)
 
     # How many udp packets of data received in one read loop
-    data_conf['n_frames_per_loop'] = 32
+    data_conf['n_frames_per_loop'] = 16
 
     data_conf['save_lost'] = False
 
@@ -117,11 +116,11 @@ if data_conf['output_fft']:
     print("n_fft_blocks_per_loop", data_conf['n_fft_blocks_per_loop'])
 
     # how many fft groups accumulated then save
-    data_conf['n_blocks_to_save']  = 32
+    data_conf['n_blocks_to_save']  = 4096
 
 else:
     # How many udp packets of data received in one read loop
-    data_conf['n_frames_per_loop'] = 1024
+    data_conf['n_frames_per_loop'] = 4096
     # how many raw data read loops accumulated then save
     data_conf['n_blocks_to_save']  = 1
     data_conf['quantity'] = 'voltage'
@@ -137,11 +136,11 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-data_conf['file_stop_num'] = 50000
+data_conf['file_stop_num'] = 8000
 #file_stop_num = -1
 
 # default by hour
-split_by_min = True
+split_by_min = False
 
 
 class bcolors:

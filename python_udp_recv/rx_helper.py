@@ -24,7 +24,8 @@ from params import split_by_min, data_conf,fft_method,labels
 
 def save_meta_file(fname, stime, s_id):
     ff = h5.File(fname, 'w')
-    ff.create_dataset('start_time', data=stime)
+    str_stime = epoctime2date(stime)
+    ff.create_dataset('start_time', data=str_stime, dtype='S30')
     ff.create_dataset('time zone', data='utc')
     ff.create_dataset('version', data=0.5)
     ff.create_dataset('id_start', data=s_id)
@@ -41,6 +42,7 @@ def display_metrics(time_before,time_now, s_time, num_lost_all, dconf):
     # duration  = acq_data_size / size_of_data_per_sec * 1.0
     acq_time = time_now - time_before
 
+    os.system("clear")
     print(f"frame loop time: {time_now - time_before:.3f},", \
             " lost_packet:", num_lost_all, \
             f"already run: {time_now - s_time:.3f}")
@@ -59,8 +61,11 @@ def prepare_folder(indir):
         os.mkdir(indir)
 
 
-def data_file_prefix(indir, stime):
-    dt = datetime.datetime.utcfromtimestamp(stime)
+def data_file_prefix(indir, stime, unpack=False):
+    if isinstance(stime, float):
+        dt = datetime.datetime.utcfromtimestamp(stime)
+    else:
+        dt = datetime.datetime.fromisoformat(stime)
     folder_level1 = dt.strftime("%Y-%m-%d")
     folder_level2 = dt.strftime("%H")
     if split_by_min:
@@ -69,10 +74,14 @@ def data_file_prefix(indir, stime):
     else:
         full_path = os.path.join(indir, folder_level1, folder_level2)
     
-    if not os.path.exists(full_path):
-        os.makedirs(full_path)
+    if not unpack:
+        if not os.path.exists(full_path):
+            os.makedirs(full_path)
 
-    return full_path
+    if unpack:
+        return folder_level1, folder_level2, folder_level3
+    else:
+        return full_path
 
 
 
@@ -98,9 +107,11 @@ def set_noblocking_keyboard():
     oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
-def compute_fft_data2(data, avg_n, fft_length, scale_f):
-    # fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
-    fft_in_data = scale_f*data
+def compute_fft_data2(data, avg_n, fft_length, scale_f, quantity, mean=True):
+    if mean:
+        fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
+    else:
+        fft_in_data = scale_f*data
     
     if fft_method =='cupy':
         fft_in_data = cp.array(fft_in_data)
@@ -108,6 +119,9 @@ def compute_fft_data2(data, avg_n, fft_length, scale_f):
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
         elif quantity == 'power': 
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2, 
+
+        if mean:
+            mean_fft_result = np.mean(mean_fft_result, axis=1)
                     
     elif fft_method == 'pytorch':
         device = torch.device('cuda')
@@ -120,14 +134,20 @@ def compute_fft_data2(data, avg_n, fft_length, scale_f):
             mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
                 dim=-1).detach().cpu().numpy())**2
 
+        if mean:
+            mean_fft_result = np.mean(mean_fft_result, axis=1)
     else:
         if quantity == 'amplitude':
-            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
-            # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
+            # mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
+            mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
         elif quantity == 'power': 
-            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
-            # mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2 
+            # mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
+            mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2 
 
+        if mean:
+            mean_fft_result = np.mean(mean_fft_result, axis=1)
+
+    return mean_fft_result
 
 def compute_fft_data_only(fft_in_data):
 
@@ -330,14 +350,14 @@ def dumpdata_hdf5(file_name, data, id_data, block_time):
         # n_frames_per_loop = data_conf['n_frames_per_loop']
         # data_size = data_conf['data_size']
         # n_blocks_to_save  = data_conf['n_blocks_to_save']
-        quantity = data_conf['quantity']
+        quantity = 'power'
         # output_sel = data_conf['output_sel']
         # file_stop_num = data_conf['file_stop_num']
 
         f=h5.File(file_name +'.h5','w')
         dset = f.create_dataset(quantity, data=data)
-        # dset = f.create_dataset('block_time', data=block_time)
-        dset.attrs['block_time'] = epoctime2date(block_time)
+        dset = f.create_dataset('block_time', data=block_time)
+        # dset.attrs['block_time'] = epoctime2date(block_time)
         dset = f.create_dataset('block_ids', data=id_data)
 
         f.close()
@@ -506,7 +526,7 @@ def get_sample_data_new(sock,dconf):                 #{{{ payload_size,data_size
 
         # }}}
 
-def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,data_size, 
+def get_sample_data(sock,raw_data_q, dconf, v):                 #{{{ payload_size,data_size, 
 
     n_frames_per_loop = dconf['n_frames_per_loop']
     payload_size = dconf['payload_size']
@@ -523,6 +543,9 @@ def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,d
     payload_buff = memoryview(udp_payload)
     data_buff = memoryview(udp_data)
     id_buff = memoryview(udp_id)
+
+    warmup_data = bytearray(payload_size)
+    warmup_buff = memoryview(warmup_data)
 
     payload_buff_head = payload_buff
     
@@ -541,8 +564,11 @@ def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,d
     # the period of the consecutive ID is 2**32 - 1 = 4294967295
     cycle = 4294967295
     max_id = 0
+    loop = True
+    tmp_id = 0
+    testme = False
 
-    while True:
+    while loop:
 
         pi1 = 0
         pi2 = data_size
@@ -576,6 +602,16 @@ def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,d
             print("block is not connected", id_tail_before, id_arr[0])
             print("program last ", time.time() - s_time)
             num_lost_all += 1
+            with open("block_dist.txt", 'a') as fff:
+                fff.write("fresh id: " + str(id_arr[0]) + " " 
+                        + str(id_arr[0]%16))
+                fff.close()
+
+            while id_arr[-1] % 16 != 15:
+                sock.recv_into(warmup_buff, payload_size)
+                tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
+                payload_size], 'big')
+                testme = True
 
         # update the ids before for next section
         id_head_before = id_arr[0]
@@ -591,20 +627,30 @@ def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,d
             bad=np.arange(id_offsets.size)[idx][0]
             print(id_arr[bad-2:bad+3])
             num_lost_all += num_lost_p
+            with open("middle_dist.txt", 'a') as fff:
+                fff.write("fresh id: " + str(id_arr[0]) + " " 
+                        + str(id_arr[0]%16))
+                fff.close()
+            while id_arr[-1] % 16 != 15:
+                sock.recv_into(warmup_buff, payload_size)
+                tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
+                payload_size], 'big')
+                testme = True
+
         else:
             udp_data_arr = np.frombuffer(udp_data, dtype=data_type)
             # block_time = epoctime2date((block_time1 + block_time2)/2.)
-            # block_time = (block_time1 + block_time2)/2.
-            block_time = block_time1 
+            block_time = (block_time1 + block_time2)/2.
+
             if output_fft:
-                raw_data_q.put_nowait((udp_data_arr,id_arr[0], id_arr[-1], block_time))
+                raw_data_q.put((udp_data_arr,id_arr, block_time))
             else:
-                raw_data_q.put_nowait((udp_data_arr,id_arr, block_time))
+                raw_data_q.put((udp_data_arr,id_arr, block_time))
                 # raw_data_q.send((udp_data_arr,id_arr, block_time))
 
         time_now = time.perf_counter()
 
-        if i == 6000:
+        if i == 2000:
             block_time = epoctime2date((block_time1 + block_time2)/2.)
             display_metrics(time_before, time_now, s_time, num_lost_all, 
                     data_conf)
@@ -612,5 +658,11 @@ def get_sample_data(sock,raw_data_q, dconf):                 #{{{ payload_size,d
 
         time_before = time_now
         i +=1
+
+        if v.value == 1:
+            loop = False
+            print("read finished ")
+
+    return
 
         # }}}
