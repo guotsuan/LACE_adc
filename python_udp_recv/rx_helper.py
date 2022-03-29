@@ -526,6 +526,61 @@ def get_sample_data_new(sock,dconf):                 #{{{ payload_size,data_size
 
         # }}}
 
+def get_sample_data_simple(sock,raw_data_q, dconf, v):
+
+    n_frames_per_loop = dconf['n_frames_per_loop']
+    payload_size = dconf['payload_size']
+    data_size = dconf['data_size']
+    id_size = dconf['id_size']
+    data_type = dconf['data_type']
+    id_tail_before = dconf['id_tail_before']
+    output_fft = dconf['output_fft']
+
+    udp_payload = bytearray(payload_size)
+    udp_data = bytearray(n_frames_per_loop*data_size)
+    udp_id = bytearray(n_frames_per_loop*id_size)
+
+    payload_buff = memoryview(udp_payload)
+    data_buff = memoryview(udp_data)
+    id_buff = memoryview(udp_id)
+
+    warmup_data = bytearray(payload_size)
+    warmup_buff = memoryview(warmup_data)
+
+    payload_buff_head = payload_buff
+    
+    i = 0
+    file_cnt = 0
+    fft_block_cnt = 0
+    marker = 0
+    num_lost_all = 0.0
+
+    s_time = time.perf_counter()
+    time_before = s_time
+    t0_time = time.time()
+
+    print("get sampe pid: ", os.getpid())
+
+    # the period of the consecutive ID is 2**32 - 1 = 4294967295
+    cycle = 4294967295
+    max_id = 0
+    loop = True
+    tmp_id = 0
+    testme = False
+
+    while loop:
+        block_time1 = time.time()
+        sock.recv_into(payload_buff, payload_size)
+        block_time2 = time.time()
+        block_time = (block_time1 + block_time2) * 0.5
+        raw_data_q.put((udp_payload,block_time))
+        # if v.value == 1:
+            # loop = False
+            # print("read finished ")
+    return
+
+        # }}}
+
 def get_sample_data(sock,raw_data_q, dconf, v):                 #{{{ payload_size,data_size, 
 
     n_frames_per_loop = dconf['n_frames_per_loop']
@@ -643,14 +698,14 @@ def get_sample_data(sock,raw_data_q, dconf, v):                 #{{{ payload_siz
             block_time = (block_time1 + block_time2)/2.
 
             if output_fft:
-                raw_data_q.put((udp_data_arr,id_arr, block_time))
+                raw_data_q.send((udp_data_arr,id_arr, block_time))
             else:
-                raw_data_q.put((udp_data_arr,id_arr, block_time))
+                raw_data_q.send((udp_data_arr,id_arr, block_time))
                 # raw_data_q.send((udp_data_arr,id_arr, block_time))
 
         time_now = time.perf_counter()
 
-        if i == 2000:
+        if i == 200:
             block_time = epoctime2date((block_time1 + block_time2)/2.)
             display_metrics(time_before, time_now, s_time, num_lost_all, 
                     data_conf)

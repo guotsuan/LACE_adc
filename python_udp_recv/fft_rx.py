@@ -109,9 +109,9 @@ sock.bind((udp_ip, udp_port))
 
 
 executor = futures.ThreadPoolExecutor(max_workers=4)
-raw_data_q = Queue()
+# raw_data_q = Queue()
 # raw_data_q = SimpleQueue()
-# raw_data_q, tx= Pipe(False)
+raw_data_q, tx= Pipe(False)
 
 
 v= RawValue('i', 0)
@@ -149,7 +149,7 @@ def save_raw_data(rx, dconf, v):  #{{{
     wstart = False
 
     while loop_forever:
-        raw_data, id_arr, block_time = raw_data_q.get()
+        raw_data, id_arr, block_time = raw_data_q.recv()
         if nn == 0:
             file_path = data_file_prefix(data_dir, block_time)
 
@@ -261,7 +261,7 @@ if __name__ == '__main__':
 
     # start a new Process to receive data from the Receiver
 
-    read=Process(target=get_sample_data, args=(sock, raw_data_q, data_conf, v),
+    read=Process(target=get_sample_data, args=(sock, tx, data_conf, v),
         daemon=True)
     read.start()
 
@@ -270,8 +270,6 @@ if __name__ == '__main__':
     save_raw=Process(target=save_raw_data, args=(raw_data_q, data_conf, v),
         daemon=True)
     save_raw.start()
-
-    print("save_raw finshied", v.value)
     save_raw.join()
 
     if v.value == 1:
