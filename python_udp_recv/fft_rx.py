@@ -93,6 +93,8 @@ header_size = 28
 block_size = 1024
 warmup_size = 4096
 
+dur_per_frame = data_size/sample_rate_over_100/2.0
+
 data_conf['payload_size'] = payload_size
 data_conf['id_size'] = id_size
 data_conf['data_size'] = data_size
@@ -116,6 +118,7 @@ raw_data_q, tx= Pipe(False)
 
 v= RawValue('i', 0)
 v.value = 0
+
 
 
 def save_raw_data(rx, dconf, v):  #{{{
@@ -143,13 +146,15 @@ def save_raw_data(rx, dconf, v):  #{{{
     ngrp = int(n_frames_per_loop * data_size / 2 /fft_npoints)
     print("ngrp: ", ngrp)
     raw_data_to_file = np.zeros((n_blocks_to_save, fft_npoints//2))
-    raw_id_to_file = np.zeros((n_blocks_to_save,n_frames_per_loop), dtype=np.uint32)
+    raw_id_to_file = np.zeros((n_blocks_to_save,n_frames_per_loop), 
+            dtype=np.uint32)
     raw_block_time_to_file = np.zeros((n_blocks_to_save,), dtype='S30')
 
     wstart = False
 
     while loop_forever:
         raw_data, id_arr, block_time = raw_data_q.recv()
+
         if nn == 0:
             file_path = data_file_prefix(data_dir, block_time)
 
@@ -169,13 +174,30 @@ def save_raw_data(rx, dconf, v):  #{{{
 
 
         raw_id_to_file[nn,...] = id_arr
-        raw_block_time_to_file[nn] = epoctime2date(block_time)
+        # raw_block_time_to_file[nn] = epoctime2date(block_time)
         i1 = nn*ngrp
         i2 = i1 + ngrp
         raw_data_to_file[nn*ngrp:nn*ngrp+ngrp,...] = raw_data.reshape(-1, fft_npoints//2)
+
+        # calcuate block time
+        start_t0 = datetime.datetime.fromtimestamp(t0_time)
+
+        block_id_start_t = datetime.timedelta(milliseconds=(id_arr[0] -
+            pstart_id)*dur_per_frame)
+        
+        dur_of_block = datetime.timedelta(milliseconds=(id_arr[-1] -
+            id_arr[0])*dur_per_frame)
+
+        t_frame_start = start_t0 + block_id_start_t
+        
+        for kk in range(i1,i2):
+            raw_block_time_to_file[kk] = (t_frame_start +
+                    kk*dur_of_block/ngrp).isoformat()
+
+
         nn +=1
 
-        if i2 == n_blocks_to_save - 10: 
+        if i2 >= (nn - 2) * ngrp: 
             if wstart:
                 wfile.result()
                 wstart = False
@@ -245,6 +267,7 @@ if __name__ == '__main__':
 
     t0_time = time.time()
     data_conf['id_tail_before'] = id_tail_before
+    pstart_id = id_tail_before
 
     # In info.h5, we need to save
     # 1. t0_time: The start time of rx_fft.py receiving.
@@ -261,7 +284,7 @@ if __name__ == '__main__':
 
     # start a new Process to receive data from the Receiver
 
-    read=Process(target=get_sample_data, args=(sock, tx, data_conf, v),
+    read=Process(target=get_sample_data2, args=(sock, tx, data_conf, v),
         daemon=True)
     read.start()
 

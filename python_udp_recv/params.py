@@ -99,7 +99,7 @@ if data_conf['output_fft']:
     # data_conf['avg_n'] = int(av_time/fft_single_time)
 
     # How many udp packets of data received in one read loop
-    data_conf['n_frames_per_loop'] = 4096
+    data_conf['n_frames_per_loop'] = 8192
 
     data_conf['save_lost'] = False
 
@@ -116,7 +116,7 @@ if data_conf['output_fft']:
     print("n_fft_blocks_per_loop", data_conf['n_fft_blocks_per_loop'])
 
     # how many fft groups accumulated then save
-    data_conf['n_blocks_to_save']  = 512
+    data_conf['n_blocks_to_save']  = 2048
 
 else:
     # How many udp packets of data received in one read loop
@@ -136,7 +136,7 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-data_conf['file_stop_num'] = 8000
+data_conf['file_stop_num'] = 20000
 #file_stop_num = -1
 
 # default by hour
