@@ -88,6 +88,7 @@ start_over:
   RxBytesTotal = 0;
   RxPackets = UINT64_C(0);
 
+  // Warmup
   for (int i;i<block_size;i++) {
       int ReadSize1 = Receive.receive(buffer, BUFFERSIZE);
   }
@@ -121,8 +122,6 @@ start_over:
     }
 
 
-    //printf("seqno %"PRIu32"  %"PRIu32" \n", SeqNo, SeqNo2);
-    //
     status_before = SeqNo2 - SeqNo1;
     status_now = SeqNo - SeqNo2;
     switch(status_now) {

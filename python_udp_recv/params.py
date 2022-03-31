@@ -74,7 +74,7 @@ fft_method = 'numpy'
 
 # use data_conf to group all the parameters
 data_conf = {}
-data_conf['output_fft'] = True
+data_conf['output_fft'] = False
 data_conf['sample_rate'] = 480e6
 data_conf['data_size'] = 8192
 data_conf['save_hdf5'] = True
@@ -120,9 +120,9 @@ if data_conf['output_fft']:
 
 else:
     # How many udp packets of data received in one read loop
-    data_conf['n_frames_per_loop'] = 4096
+    data_conf['n_frames_per_loop'] = 8192
     # how many raw data read loops accumulated then save
-    data_conf['n_blocks_to_save']  = 1
+    data_conf['n_blocks_to_save']  = 1024
     data_conf['quantity'] = 'voltage'
 
 # the size of socket buffer for recieving data

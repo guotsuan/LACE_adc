@@ -593,7 +593,7 @@ def get_sample_data(sock,raw_data_q, dconf, v):                 #{{{ payload_siz
     id_tail_before = dconf['id_tail_before']
     output_fft = dconf['output_fft']
 
-    udp_payload = bytearray(n_frames_per_loop*payload_size)
+    udp_payload = bytearray(payload_size)
     udp_data = bytearray(n_frames_per_loop*data_size)
     udp_id = bytearray(n_frames_per_loop*id_size)
 
@@ -601,29 +601,12 @@ def get_sample_data(sock,raw_data_q, dconf, v):                 #{{{ payload_siz
     data_buff = memoryview(udp_data)
     id_buff = memoryview(udp_id)
 
-    warmup_data = bytearray(payload_size)
-    warmup_buff = memoryview(warmup_data)
-
     payload_buff_head = payload_buff
     
-    i = 0
-    file_cnt = 0
-    fft_block_cnt = 0
-    marker = 0
-    num_lost_all = 0.0
-
-    s_time = time.perf_counter()
-    time_before = s_time
-    t0_time = time.time()
 
     print("get sampe pid: ", os.getpid())
 
-    # the period of the consecutive ID is 2**32 - 1 = 4294967295
-    cycle = 4294967295
-    max_id = 0
     loop = True
-    tmp_id = 0
-    testme = False
 
     while loop:
 
@@ -649,78 +632,15 @@ def get_sample_data(sock,raw_data_q, dconf, v):                 #{{{ payload_siz
 
             count_down -= 1
 
-        block_time2 = time.time()
+        raw_data_q.send((udp_data,udp_id))
 
-        id_arr = np.uint32(np.frombuffer(udp_id,dtype='>u4'))
-
-        diff = id_arr[0] - id_tail_before
-        if (diff == 1) or (diff == - cycle ):
-            pass
-        else:
-            print("block is not connected", id_tail_before, id_arr[0])
-            print("program last ", time.time() - s_time)
-            num_lost_all += 1
-            with open("block_dist.txt", 'a') as fff:
-                fff.write("fresh id: " + str(id_arr[0]) + " " 
-                        + str(id_arr[0]%16) + "\n")
-                fff.close()
-
-            while id_arr[-1] % 16 != 15:
-                sock.recv_into(warmup_buff, payload_size)
-                tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
-                payload_size], 'big')
-                testme = True
-
-        # update the ids before for next section
-        id_head_before = id_arr[0]
-        id_tail_before = id_arr[-1]
-
-        id_offsets = np.diff(id_arr) % cycle
-        idx = id_offsets > 1
-        num_lost_p = len(id_offsets[idx])
-
-        if (num_lost_p > 0):
-            bad=np.arange(id_offsets.size)[idx][0]
-            print(id_arr[bad-2:bad+3])
-            num_lost_all += num_lost_p
-            with open("middle_dist.txt", 'a') as fff:
-                fff.write("fresh id: " + str(id_arr[0]) + " " 
-                        + str(id_arr[0]%16) +"\n")
-                fff.close()
-
-            while id_arr[-1] % 16 != 15:
-                sock.recv_into(warmup_buff, payload_size)
-                tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
-                payload_size], 'big')
-
-        else:
-            udp_data_arr = np.frombuffer(udp_data, dtype=data_type)
-            # block_time = epoctime2date((block_time1 + block_time2)/2.)
-            block_time = (block_time1 + block_time2)/2.
-
-            if output_fft:
-                raw_data_q.send((udp_data_arr,id_arr, block_time))
-            else:
-                raw_data_q.send((udp_data_arr,id_arr, block_time))
-
-        time_now = time.perf_counter()
-
-        if i == 100:
-            block_time = epoctime2date((block_time1 + block_time2)/2.)
-            display_metrics(time_before, time_now, s_time, num_lost_all, 
-                    data_conf)
-            i = 0
-
-        time_before = time_now
-        i +=1
-
-        if v.value == 1:
-            loop = False
-            print("read finished ")
+        # if v.value == 1:
+            # loop = False
+            # print("read raw data finished ")
 
     return
 
-        # }}}
+    # }}}
 
 def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_size,data_size, 
 
