@@ -121,12 +121,13 @@ def check_and_update():
             print("udpate dst_ip", i)
             status.append(update_dst_ip(dip, i))
 
-    if np.all(status):
-        print("restart and check again!")
-        restart_recv()
-        check_output()
-    else:
-        print("mac or IP address update failed... Receiver will not reboot")
+    if len(status) != 0:
+        if np.all(status):
+            print("restart and check again!")
+            restart_recv()
+            check_output()
+        else:
+            print("mac or IP address update failed... Receiver will not reboot")
 
 if __name__ == "__main__":
     from mac_add_update import update_mac_addr, update_dst_ip, restart_recv
