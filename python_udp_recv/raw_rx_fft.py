@@ -351,7 +351,7 @@ if __name__ == '__main__':
             print(id_arr[bad-2:bad+3])
             num_lost_all += num_lost_p
         else:
-            data_in[thread_cnt,...] = np.frombuffer(udp_data, dtype=data_type)
+            # data_in[thread_cnt,...] = np.frombuffer(udp_data, dtype=data_type)
             # block_time = epoctime2date((block_time1 + block_time2)/2.)
             block_time = (block_time1 + block_time2)/2.
             ids_list[thread_cnt] = id_arr[0]
@@ -373,22 +373,24 @@ if __name__ == '__main__':
 
         i +=1
 
+        if thread_cnt == max_workers:
+            thread_cnt = 0
         # start a new Process to save the FFT data
 
 
         # the order of averaged fft is not sequential.
 
-        if v.value == 0:
-            if thread_cnt == max_workers:
-                data_back = fft_pool.map(compute_fft_map, range(max_workers))
-                for d,s,e,b in zip(data_back, ids_list, ide_list, block_time_list):
-                    fft_data_q.put((d,s,e,b))
-                thread_cnt = 0
+        # if v.value == 0:
+            # if thread_cnt == max_workers:
+                # data_back = fft_pool.map(compute_fft_map, range(max_workers))
+                # for d,s,e,b in zip(data_back, ids_list, ide_list, block_time_list):
+                    # fft_data_q.put((d,s,e,b))
+                # thread_cnt = 0
 
-        else:
-            loop_ctl=True
-            print("rx_fft.py will exit, clean up....\n")
-            fft_pool.terminate()
+        # else:
+            # loop_ctl=True
+            # print("rx_fft.py will exit, clean up....\n")
+            # fft_pool.terminate()
 
 
     save_fft.terminate()
