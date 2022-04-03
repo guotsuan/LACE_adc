@@ -542,11 +542,12 @@ def get_sample_data_simple(sock,raw_data_q, dconf, v):                 #{{{ payl
     # the period of the consecutive ID is 2**32 - 1 = 4294967295
     cycle = 4294967295
     max_id = 0
+    payload_size = dconf['payload_size']
 
     loop = True
 
     while loop:
-        raw_data_q.put(sock.recv(payload_size))
+        raw_data_q.send(sock.recv(payload_size))
         if v.value == 1:
             loop = False
             print("read finished ")
@@ -648,6 +649,7 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
     time_before = s_time
     t0_time = time.time()
 
+
     print("get sampe pid: ", os.getpid())
 
     # the period of the consecutive ID is 2**32 - 1 = 4294967295
@@ -704,16 +706,8 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
                 print(id_arr[bad-2:bad+3])
                 logging.debug("id numb : " + str(id_arr[bad-2:bad+3]))
                 num_lost_all += num_lost_p
-<<<<<<< HEAD
-                with open("middle_dist.txt", 'a') as fff:
-                    fff.write("fresh id: " + str(id_arr[0]) + " "
-                            + str(id_arr[0]%16) +"\n")
-                    fff.close()
-=======
                 logging.warning("fresh id: " + str(id_arr[0]) + " "
                             + str(id_arr[0]%16))
->>>>>>> 3540335607cf00e8ec5091012372a71a1b45f8db
-
 
             else:
                 udp_data_arr = np.frombuffer(udp_data, dtype=data_type)
@@ -729,16 +723,9 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
             logging.debug("block is not connected %i, %i", id_tail_before, id_arr[0])
             print("program last ", time.time() - s_time)
             num_lost_all += 1
-<<<<<<< HEAD
-            with open("block_dist.txt", 'a') as fff:
-                fff.write("fresh id: " + str(id_arr[0]) + " "
-                        + str(id_arr[0]%16) + "\n")
-                fff.close()
-
-=======
             logging.warning("disc blocked fresh id: " + str(id_arr[0]) + " "
                         + str(id_arr[0]%16))
->>>>>>> 3540335607cf00e8ec5091012372a71a1b45f8db
+
         if id_arr[-1] % 16 != 15:
             while tmp_id % 16 != 15:
                 sock.recv_into(warmup_buff, payload_size)
