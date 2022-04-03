@@ -811,8 +811,9 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
                 print(id_arr[bad-2:bad+3])
                 logging.debug("id numb : " + str(id_arr[bad-2:bad+3]))
                 num_lost_all += num_lost_p
-                logging.warning("fresh id: " + str(id_arr[0]) + " "
-                            + str(id_arr[0]%16))
+                logging.warning("fresh id: %i, %i, %i, %i ",
+                                id_arr[0],id_arr[0]%16,
+                                id_arr[-1], id_arr[-1]%16)
 
 
             else:
@@ -829,8 +830,14 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
             logging.debug("block is not connected %i, %i", id_tail_before, id_arr[0])
             print("program last ", time.time() - s_time)
             num_lost_all += 1
-            logging.warning("disc blocked fresh id: " + str(id_arr[0]) + " "
-                        + str(id_arr[0]%16))
+            logging.warning("previous blocked fresh id: %i, %i, id_tail, %i, %i ",
+                            id_head_before,id_head_before%16,
+                            id_tail_before,id_tail_before%16)
+
+            logging.warning("disc blocked fresh id: %i, %i, id_tail, %i, %i",
+                            id_arr[0],id_arr[0]%16,
+                            id_arr[-1], id_arr[-1]%16)
+
         if id_arr[-1] % 16 != 15:
             while tmp_id % 16 != 15:
                 sock.recv_into(warmup_buff, payload_size)
@@ -838,6 +845,8 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
                 payload_size], 'big')
 
             id_tail_before = tmp_id
+            logging.warning("fixed tail id: %i, %i ",
+                            id_tail_before, id_tail_before%16)
 
         time_now = time.perf_counter()
 
