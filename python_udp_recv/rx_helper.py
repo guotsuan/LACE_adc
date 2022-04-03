@@ -18,6 +18,7 @@ import termios, fcntl
 import cupy as cp
 import torch
 import mkl_fft
+import logging
 from multiprocessing import shared_memory
 
 from params import split_by_min, data_conf,fft_method,labels
@@ -49,6 +50,12 @@ def display_metrics(time_before,time_now, s_time, num_lost_all, dconf):
 
     print("The speed of acquaring data: " +
             f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
+
+    logging.info(f"frame loop time: {time_now - time_before:.3f}," + \
+            " lost_packet:" + str(num_lost_all) + \
+            f"already run: {time_now - s_time:.3f}")
+    logging.info("The speed of acquaring data: " + \
+                 f'{acq_data_size/1024/1024/acq_time:.3f} MB/s')
 
 def prepare_folder(indir):
     isdir = os.path.isdir(indir)
@@ -528,7 +535,7 @@ def get_sample_data_new(sock,dconf):                 #{{{ payload_size,data_size
 
         # }}}
 
-def get_sample_data_simple(sock,raw_data_q, dconf, v):
+def get_sample_data_simple(sock,raw_data_q, dconf, v):                 #{{{ payload_size,data_size,
 
     print("get sampe pid: ", os.getpid())
 
@@ -614,6 +621,7 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
     id_size = dconf['id_size']
     data_type = dconf['data_type']
     print("data_type", data_type)
+    logging.info("data_type: %s", data_type)
     id_tail_before = dconf['id_tail_before']
     output_fft = dconf['output_fft']
 
@@ -679,10 +687,10 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
 
         diff = id_arr[0] - id_tail_before
 
+        id_head_before = id_arr[0]
+        id_tail_before = id_arr[-1]
         if (diff == 1) or (diff == - cycle ):
             # update the ids before for next section
-            id_head_before = id_arr[0]
-            id_tail_before = id_arr[-1]
 
             id_offsets = np.diff(id_arr) % cycle
             idx = id_offsets > 1
@@ -694,11 +702,17 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
             if (num_lost_p > 0):
                 bad=np.arange(id_offsets.size)[idx][0]
                 print(id_arr[bad-2:bad+3])
+                logging.debug("id numb : " + str(id_arr[bad-2:bad+3]))
                 num_lost_all += num_lost_p
+<<<<<<< HEAD
                 with open("middle_dist.txt", 'a') as fff:
                     fff.write("fresh id: " + str(id_arr[0]) + " "
                             + str(id_arr[0]%16) +"\n")
                     fff.close()
+=======
+                logging.warning("fresh id: " + str(id_arr[0]) + " "
+                            + str(id_arr[0]%16))
+>>>>>>> 3540335607cf00e8ec5091012372a71a1b45f8db
 
 
             else:
@@ -707,24 +721,31 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
                 block_time = (block_time1 + block_time2)/2.
 
                 if output_fft:
-                    raw_data_q.send((udp_data_arr,id_arr, block_time))
+                    raw_data_q.put((udp_data_arr,id_arr, block_time))
                 else:
-                    raw_data_q.send((udp_data_arr,id_arr, block_time))
+                    raw_data_q.put((udp_data_arr,id_arr, block_time))
         else:
             print("block is not connected", id_tail_before, id_arr[0])
+            logging.debug("block is not connected %i, %i", id_tail_before, id_arr[0])
             print("program last ", time.time() - s_time)
             num_lost_all += 1
+<<<<<<< HEAD
             with open("block_dist.txt", 'a') as fff:
                 fff.write("fresh id: " + str(id_arr[0]) + " "
                         + str(id_arr[0]%16) + "\n")
                 fff.close()
 
+=======
+            logging.warning("disc blocked fresh id: " + str(id_arr[0]) + " "
+                        + str(id_arr[0]%16))
+>>>>>>> 3540335607cf00e8ec5091012372a71a1b45f8db
         if id_arr[-1] % 16 != 15:
             while tmp_id % 16 != 15:
                 sock.recv_into(warmup_buff, payload_size)
                 tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
                 payload_size], 'big')
 
+            id_tail_before = tmp_id
 
         time_now = time.perf_counter()
 

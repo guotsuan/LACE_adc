@@ -16,6 +16,7 @@ import os
 import time
 import datetime
 import shutil
+import logging
 from concurrent import futures
 from functools import partial
 
@@ -27,7 +28,7 @@ from multiprocessing import Queue, Process, RawValue, Lock, Pool, Pipe, \
 
 # put all configrable parameters in params.py
 from params import *
-from rx_helper import * 
+from rx_helper import *
 
 data_dir = ''
 
@@ -111,9 +112,9 @@ sock.bind((udp_ip, udp_port))
 
 
 executor = futures.ThreadPoolExecutor(max_workers=4)
-# raw_data_q = Queue()
+raw_data_q = Queue()
 # raw_data_q = SimpleQueue()
-raw_data_q, tx= Pipe(False)
+# raw_data_q, tx= Pipe(False)
 
 
 v= RawValue('i', 0)
@@ -124,8 +125,8 @@ v.value = 0
 def save_raw_data(rx, dconf, v):  #{{{
     # We need to save:
     # 1. fft_data(n_blockas_to_save, fft_npoint//2+1)
-    # 2. averaged epochtime,  (t0_time + t1_time) 
-    # 3. the first ID of raw data frame and the last ID of raw data frame 
+    # 2. averaged epochtime,  (t0_time + t1_time)
+    # 3. the first ID of raw data frame and the last ID of raw data frame
 
     n_blocks_to_save = dconf['n_blocks_to_save']
     n_frames_per_loop = dconf['n_frames_per_loop']
@@ -146,14 +147,14 @@ def save_raw_data(rx, dconf, v):  #{{{
     ngrp = int(n_frames_per_loop * data_size / 2 /fft_npoints)
     print("ngrp: ", ngrp)
     raw_data_to_file = np.zeros((n_blocks_to_save, fft_npoints//2))
-    raw_id_to_file = np.zeros((n_blocks_to_save,n_frames_per_loop), 
+    raw_id_to_file = np.zeros((n_blocks_to_save,n_frames_per_loop),
             dtype=np.uint32)
     raw_block_time_to_file = np.zeros((n_blocks_to_save,), dtype='S30')
 
     wstart = False
 
     while loop_forever:
-        raw_data, id_arr, block_time = raw_data_q.recv()
+        raw_data, id_arr, block_time = raw_data_q.get()
 
         if nn == 0:
             file_path = data_file_prefix(data_dir, block_time)
@@ -184,12 +185,12 @@ def save_raw_data(rx, dconf, v):  #{{{
 
         block_id_start_t = datetime.timedelta(milliseconds=(id_arr[0] -
             pstart_id)*dur_per_frame)
-        
+
         dur_of_block = datetime.timedelta(milliseconds=(id_arr[-1] -
             id_arr[0])*dur_per_frame)
 
         t_frame_start = start_t0 + block_id_start_t
-        
+
         for kk in range(i1,i2):
             raw_block_time_to_file[kk] = (t_frame_start +
                     kk*dur_of_block/ngrp).isoformat()
@@ -197,7 +198,7 @@ def save_raw_data(rx, dconf, v):  #{{{
 
         nn +=1
 
-        if i2 >= (nn - 2) * ngrp: 
+        if i2 >= (nn - 2) * ngrp:
             if wstart:
                 wfile.result()
                 wstart = False
@@ -231,11 +232,11 @@ def save_raw_data(rx, dconf, v):  #{{{
             loop_forever = False
             v.value = 1
             print("save raw data loop ended")
-            return 
+            return
 
    #}}}
 
-    
+
 if __name__ == '__main__':
     # Warm up the system....
     # Drop the some data packets to avoid unstable
@@ -265,14 +266,15 @@ if __name__ == '__main__':
     print("Warmup finished with last data seqNo: ", id_tail_before,
             tmp_id % block_size)
 
+
     t0_time = time.time()
     data_conf['id_tail_before'] = id_tail_before
     pstart_id = id_tail_before
 
     # In info.h5, we need to save
     # 1. t0_time: The start time of rx_fft.py receiving.
-    # 2. id_tail_before: The first ID of the data received by rx_fft.py 
-    # 3. 
+    # 2. id_tail_before: The first ID of the data received by rx_fft.py
+    # 3.
 
     save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time, id_tail_before)
 
@@ -282,9 +284,15 @@ if __name__ == '__main__':
     # copy info.txt from receiver and save
     os.system("scp rec:~/info.txt " + os.path.join(data_dir, 'info_recv.txt'))
 
+    logfile = os.path.join(data_dir, 'rx.log')
+    logging.basicConfig(filename=logfile, level=logging.DEBUG,
+                        format='%(asctime)s %(levelname)s: %(message)s')
+    logging.info("Warmup finished with last data seqNo: %i, %i ", id_tail_before,
+            tmp_id % block_size)
+
     # start a new Process to receive data from the Receiver
 
-    read=Process(target=get_sample_data2, args=(sock, tx, data_conf, v),
+    read=Process(target=get_sample_data2, args=(sock, raw_data_q, data_conf, v),
         daemon=True)
     read.start()
 
@@ -298,6 +306,7 @@ if __name__ == '__main__':
     if v.value == 1:
         print("rx_fft.py will exit, clean up....\n")
         sys.exit("rx_fft.py exited...")
+        loggin.info("rx_fft.py exited")
 
     read.join()
 
