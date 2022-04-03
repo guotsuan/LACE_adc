@@ -29,7 +29,7 @@ import numpy as np
 
 # put all configrable parameters in params.py
 from params import *
-from rx_helper import * 
+from rx_helper import *
 
 data_dir = ''
 good = 0
@@ -251,15 +251,15 @@ if __name__ == '__main__':
         #######################################################################
         #                            saving data                              #
         #######################################################################
-        
+
         if loop_file:
             k = file_cnt % 8
         else:
             k = file_cnt
 
-        if pstart:
-            writefile.result()
-            pstart=False
+        # if pstart:
+            # writefile.result()
+            # pstart=False
 
 
         if no_lost:
@@ -267,27 +267,27 @@ if __name__ == '__main__':
             fout = os.path.join(file_path, labels[output_sel] +
                     '_' + str(k))
 
-            if not pstart:
+            # if not pstart:
 
-                writefile=executor.submit(dumpdata_hdf5, 
-                        fout,
-                        udp_payload_arr,
-                        id_arr,
-                        block_time)
+                # writefile=executor.submit(dumpdata_hdf5,
+                        # fout,
+                        # udp_payload_arr,
+                        # id_arr,
+                        # block_time)
 
-                # writefile = Thread(target=dumpdata,
-                        # args=(fout,shm_udp_payload_arr.name,
-                        # shm_id_arr.name,
-                        # t0_time, block_time, num_lost_p, save_hdf5))
-                # writefile.start()
-                pstart = True
+                # # writefile = Thread(target=dumpdata,
+                        # # args=(fout,shm_udp_payload_arr.name,
+                        # # shm_id_arr.name,
+                        # # t0_time, block_time, num_lost_p, save_hdf5))
+                # # writefile.start()
+                # pstart = True
 
-                if file_path == file_path_old:
-                    file_cnt += 1
-                else:
-                    file_cnt = 0
+                # if file_path == file_path_old:
+                    # file_cnt += 1
+                # else:
+                    # file_cnt = 0
 
-                file_path_old = file_path
+                # file_path_old = file_path
 
         else:
             print("block is dropped")

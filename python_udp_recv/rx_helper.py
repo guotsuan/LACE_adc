@@ -18,6 +18,7 @@ import termios, fcntl
 import cupy as cp
 import torch
 import mkl_fft
+import logging
 from multiprocessing import shared_memory
 
 from params import split_by_min, data_conf,fft_method,labels
@@ -50,13 +51,19 @@ def display_metrics(time_before,time_now, s_time, num_lost_all, dconf):
     print("The speed of acquaring data: " +
             f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
 
+    logging.info(f"frame loop time: {time_now - time_before:.3f}," + \
+            " lost_packet:" + str(num_lost_all) + \
+            f"already run: {time_now - s_time:.3f}")
+    logging.info("The speed of acquaring data: " + \
+                 f'{acq_data_size/1024/1024/acq_time:.3f} MB/s')
+
 def prepare_folder(indir):
     isdir = os.path.isdir(indir)
     if isdir:
         files = os.listdir(indir)
         if len(files) != 0:
             raise ValueError(indir + ' is not empty')
-            
+
     else:
         os.mkdir(indir)
 
@@ -73,7 +80,7 @@ def data_file_prefix(indir, stime, unpack=False):
         full_path = os.path.join(indir, folder_level1, folder_level2, folder_level3)
     else:
         full_path = os.path.join(indir, folder_level1, folder_level2)
-    
+
     if not unpack:
         if not os.path.exists(full_path):
             os.makedirs(full_path)
@@ -89,7 +96,7 @@ def data_file_prefix(indir, stime, unpack=False):
 def epoctime2date(etime, utc=True):
 
     if utc:
-        return datetime.datetime.utcfromtimestamp(etime).isoformat() 
+        return datetime.datetime.utcfromtimestamp(etime).isoformat()
         # return datetime.datetime.utcfromtimestamp(etime).isoformat() + ' UTC'
     else:
         return datetime.datetime.fromtimestamp(etime).isoformat()
@@ -112,26 +119,26 @@ def compute_fft_data2(data, avg_n, fft_length, scale_f, quantity, mean=True):
         fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
     else:
         fft_in_data = scale_f*data
-    
+
     if fft_method =='cupy':
         fft_in_data = cp.array(fft_in_data)
         if quantity == 'amplitude':
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
-        elif quantity == 'power': 
-            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2, 
+        elif quantity == 'power':
+            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2,
 
         if mean:
             mean_fft_result = np.mean(mean_fft_result, axis=1)
-                    
+
     elif fft_method == 'pytorch':
         device = torch.device('cuda')
         fft_in_data = torch.from_numpy(fft_in_data).to(device)
 
         if quantity == 'amplitude':
-            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
+            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data,
                 dim=-1).cpu().detach().numpy())
-        elif quantity == 'power': 
-            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data, 
+        elif quantity == 'power':
+            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data,
                 dim=-1).detach().cpu().numpy())**2
 
         if mean:
@@ -140,9 +147,9 @@ def compute_fft_data2(data, avg_n, fft_length, scale_f, quantity, mean=True):
         if quantity == 'amplitude':
             # mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
             mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
-        elif quantity == 'power': 
+        elif quantity == 'power':
             # mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
-            mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2 
+            mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2
 
         if mean:
             mean_fft_result = np.mean(mean_fft_result, axis=1)
@@ -152,62 +159,62 @@ def compute_fft_data2(data, avg_n, fft_length, scale_f, quantity, mean=True):
 def compute_fft_data_only(fft_in_data):
 
     # fft_in_data = fft_in_data[i,...].reshape(-1, fft_length)
-    
+
     if fft_method =='cupy':
         fft_in_data = cp.array(fft_in_data)
         if data_conf['quantity'] == 'amplitude':
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
-        elif data_conf['quantity'] == 'power': 
-            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2 
-                    
+        elif data_conf['quantity'] == 'power':
+            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2
+
     elif fft_method == 'pytorch':
         device = torch.device('cuda')
         fft_in_data = torch.from_numpy(fft_in_data).to(device)
 
         if data_conf['quantity'] == 'amplitude':
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data,
                 dim=-1).cpu().detach().numpy()), axis=1)
-        elif data_conf['quantity'] == 'power': 
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+        elif data_conf['quantity'] == 'power':
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data,
                 dim=-1).detach().cpu().numpy())**2, axis=1)
 
     else:
         if quantity == 'amplitude':
             mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
             # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
-        elif quantity == 'power': 
+        elif quantity == 'power':
             mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
 
     return mean_fft_result
 
-def compute_fft_data(fout,data, n_save, avg_n, fft_length, scale_f, 
+def compute_fft_data(fout,data, n_save, avg_n, fft_length, scale_f,
         i,j, save_hdf5):
 
     fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
-    
+
     if fft_method =='cupy':
         fft_in_data = cp.array(fft_in_data)
         if quantity == 'amplitude':
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
-        elif quantity == 'power': 
-            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2 
-                    
+        elif quantity == 'power':
+            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2
+
     elif fft_method == 'pytorch':
         device = torch.device('cuda')
         fft_in_data = torch.from_numpy(fft_in_data).to(device)
 
         if quantity == 'amplitude':
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data,
                 dim=-1).cpu().detach().numpy()), axis=1)
-        elif quantity == 'power': 
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+        elif quantity == 'power':
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data,
                 dim=-1).detach().cpu().numpy())**2, axis=1)
 
     else:
         if quantity == 'amplitude':
             mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
             # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
-        elif quantity == 'power': 
+        elif quantity == 'power':
             mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
 
     # fft_out[i:j,...]=mean_fft_result
@@ -284,16 +291,16 @@ def save_raw_hdf5(data_dir, raw_data_to_file, raw_block_time_file,
 
             if idx == 1:
                 maxshape = (n_blocks_to_save, n_frames_per_loop*data_size//2,)
-                dset = f.create_dataset(quantity, 
-                        data=np.atleast_2d(raw_data_to_file), 
+                dset = f.create_dataset(quantity,
+                        data=np.atleast_2d(raw_data_to_file),
                         maxshape=maxshape)
                 maxshape = (n_blocks_to_save,)
-                dset = f.create_dataset('block_time', 
+                dset = f.create_dataset('block_time',
                         data=np.atleast_1d(np.asarray(raw_block_time_file, dtype='S30')),
                         maxshape=maxshape)
                 maxshape = (n_blocks_to_save,n_frames_per_loop,)
-                dset = f.create_dataset('block_ids', 
-                        data=np.atleast_2d(raw_id_to_file), 
+                dset = f.create_dataset('block_ids',
+                        data=np.atleast_2d(raw_id_to_file),
                         maxshape=maxshape)
             else:
                 oldshape = f[quantity].shape
@@ -383,30 +390,30 @@ def dumpdata_fft_hdf5(file_name, data, id_data, block_time):
 def compute_fft(data_in, fft_length, i):
 
     fft_in_data = data_conf['scale_f']*data_in[i,...].reshape(-1, fft_length)
-    
+
     if fft_method =='cupy':
         fft_in_data = cp.array(fft_in_data)
         if data_conf['quantity'] == 'amplitude':
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
-        elif data_conf['quantity'] == 'power': 
-            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2 
-                    
+        elif data_conf['quantity'] == 'power':
+            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2
+
     elif fft_method == 'pytorch':
         device = torch.device('cuda')
         fft_in_data = torch.from_numpy(fft_in_data).to(device)
 
         if data_conf['quantity'] == 'amplitude':
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data,
                 dim=-1).cpu().detach().numpy()), axis=1)
-        elif data_conf['quantity'] == 'power': 
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data, 
+        elif data_conf['quantity'] == 'power':
+            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data,
                 dim=-1).detach().cpu().numpy())**2, axis=1)
 
     else:
         if data_conf['quantity'] == 'amplitude':
             mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
             # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
-        elif data_conf['quantity'] == 'power': 
+        elif data_conf['quantity'] == 'power':
             mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
 
     return mean_fft_result
@@ -419,7 +426,7 @@ def compute_fft(data_in, fft_length, i):
         # with wlock:
             # fft_out_q.put((fft_data, ids, ide, block_time))
 
-def get_sample_data_new(sock,dconf):                 #{{{ payload_size,data_size, 
+def get_sample_data_new(sock,dconf):                 #{{{ payload_size,data_size,
 
     n_frames_per_loop = dconf['n_frames_per_loop']
     payload_size = dconf['payload_size']
@@ -439,7 +446,7 @@ def get_sample_data_new(sock,dconf):                 #{{{ payload_size,data_size
     id_buff = memoryview(udp_id)
 
     payload_buff_head = payload_buff
-    
+
     i = 0
     file_cnt = 0
     fft_block_cnt = 0
@@ -519,7 +526,7 @@ def get_sample_data_new(sock,dconf):                 #{{{ payload_size,data_size
 
         if i == 1000:
             block_time = epoctime2date((block_time1 + block_time2)/2.)
-            display_metrics(time_before, time_now, s_time, num_lost_all, 
+            display_metrics(time_before, time_now, s_time, num_lost_all,
                     data_conf)
             i = 0
 
@@ -528,29 +535,26 @@ def get_sample_data_new(sock,dconf):                 #{{{ payload_size,data_size
 
         # }}}
 
-def get_sample_data_simple(sock,raw_data_q, dconf, v):
+def get_sample_data_simple(sock,raw_data_q, dconf, v):                 #{{{ payload_size,data_size,
 
     n_frames_per_loop = dconf['n_frames_per_loop']
     payload_size = dconf['payload_size']
     data_size = dconf['data_size']
     id_size = dconf['id_size']
     data_type = dconf['data_type']
+    print("data_type", data_type)
+    logging.info("data_type: %s", data_type)
     id_tail_before = dconf['id_tail_before']
     output_fft = dconf['output_fft']
 
-    udp_payload = bytearray(payload_size)
-    udp_data = bytearray(n_frames_per_loop*data_size)
-    udp_id = bytearray(n_frames_per_loop*id_size)
-
+    udp_payload = bytearray(n_frames_per_loop*payload_size)
     payload_buff = memoryview(udp_payload)
-    data_buff = memoryview(udp_data)
-    id_buff = memoryview(udp_id)
 
     warmup_data = bytearray(payload_size)
     warmup_buff = memoryview(warmup_data)
 
     payload_buff_head = payload_buff
-    
+
     i = 0
     file_cnt = 0
     fft_block_cnt = 0
@@ -571,19 +575,93 @@ def get_sample_data_simple(sock,raw_data_q, dconf, v):
     testme = False
 
     while loop:
+
+        pi1 = 0
+        pi2 = data_size
+
+        hi1 = 0
+        hi2 = id_size
+
+        count_down = n_frames_per_loop
+        payload_buff = payload_buff_head
         block_time1 = time.time()
-        sock.recv_into(payload_buff, payload_size)
+
+        while count_down:
+            sock.recv_into(payload_buff, payload_size)
+            payload_buff = payload_buff[data_size:]
+            count_down -= 1
+
         block_time2 = time.time()
-        block_time = (block_time1 + block_time2) * 0.5
-        raw_data_q.put((udp_payload,block_time))
-        # if v.value == 1:
-            # loop = False
-            # print("read finished ")
+
+        id_arr = np.uint32(np.frombuffer(udp_id,dtype='>u4'))
+
+        diff = id_arr[0] - id_tail_before
+
+        id_head_before = id_arr[0]
+        id_tail_before = id_arr[-1]
+        if (diff == 1) or (diff == - cycle ):
+            # update the ids before for next section
+
+            id_offsets = np.diff(id_arr) % cycle
+            idx = id_offsets > 1
+            num_lost_p = len(id_offsets[idx])
+
+            if id_arr[0] % 16 != 0:
+                num_lost_p = 1
+
+            if (num_lost_p > 0):
+                bad=np.arange(id_offsets.size)[idx][0]
+                print(id_arr[bad-2:bad+3])
+                logging.debug("id numb : " + str(id_arr[bad-2:bad+3]))
+                num_lost_all += num_lost_p
+                logging.warning("fresh id: " + str(id_arr[0]) + " "
+                            + str(id_arr[0]%16))
+
+
+            else:
+                udp_data_arr = np.frombuffer(udp_data, dtype=data_type)
+                # block_time = epoctime2date((block_time1 + block_time2)/2.)
+                block_time = (block_time1 + block_time2)/2.
+
+                if output_fft:
+                    raw_data_q.put((udp_data_arr,id_arr, block_time))
+                else:
+                    raw_data_q.put((udp_data_arr,id_arr, block_time))
+        else:
+            print("block is not connected", id_tail_before, id_arr[0])
+            logging.debug("block is not connected %i, %i", id_tail_before, id_arr[0])
+            print("program last ", time.time() - s_time)
+            num_lost_all += 1
+            logging.warning("disc blocked fresh id: " + str(id_arr[0]) + " "
+                        + str(id_arr[0]%16))
+        if id_arr[-1] % 16 != 15:
+            while tmp_id % 16 != 15:
+                sock.recv_into(warmup_buff, payload_size)
+                tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
+                payload_size], 'big')
+
+            id_tail_before = tmp_id
+
+        time_now = time.perf_counter()
+
+        if i == 200:
+            block_time = epoctime2date((block_time1 + block_time2)/2.)
+            display_metrics(time_before, time_now, s_time, num_lost_all,
+                    data_conf)
+            i = 0
+
+        time_before = time_now
+        i +=1
+
+        if v.value == 1:
+            loop = False
+            print("read finished ")
+
     return
 
         # }}}
 
-def get_sample_data(sock,raw_data_q, dconf, v):                 #{{{ payload_size,data_size, 
+def get_sample_data(sock,raw_data_q, dconf, v):                 #{{{ payload_size,data_size,
 
     n_frames_per_loop = dconf['n_frames_per_loop']
     payload_size = dconf['payload_size']
@@ -602,7 +680,7 @@ def get_sample_data(sock,raw_data_q, dconf, v):                 #{{{ payload_siz
     id_buff = memoryview(udp_id)
 
     payload_buff_head = payload_buff
-    
+
 
     print("get sampe pid: ", os.getpid())
 
@@ -642,7 +720,7 @@ def get_sample_data(sock,raw_data_q, dconf, v):                 #{{{ payload_siz
 
     # }}}
 
-def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_size,data_size, 
+def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_size,data_size,
 
     n_frames_per_loop = dconf['n_frames_per_loop']
     payload_size = dconf['payload_size']
@@ -650,6 +728,7 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
     id_size = dconf['id_size']
     data_type = dconf['data_type']
     print("data_type", data_type)
+    logging.info("data_type: %s", data_type)
     id_tail_before = dconf['id_tail_before']
     output_fft = dconf['output_fft']
 
@@ -665,7 +744,7 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
     warmup_buff = memoryview(warmup_data)
 
     payload_buff_head = payload_buff
-    
+
     i = 0
     file_cnt = 0
     fft_block_cnt = 0
@@ -715,10 +794,10 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
 
         diff = id_arr[0] - id_tail_before
 
+        id_head_before = id_arr[0]
+        id_tail_before = id_arr[-1]
         if (diff == 1) or (diff == - cycle ):
             # update the ids before for next section
-            id_head_before = id_arr[0]
-            id_tail_before = id_arr[-1]
 
             id_offsets = np.diff(id_arr) % cycle
             idx = id_offsets > 1
@@ -730,11 +809,10 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
             if (num_lost_p > 0):
                 bad=np.arange(id_offsets.size)[idx][0]
                 print(id_arr[bad-2:bad+3])
+                logging.debug("id numb : " + str(id_arr[bad-2:bad+3]))
                 num_lost_all += num_lost_p
-                with open("middle_dist.txt", 'a') as fff:
-                    fff.write("fresh id: " + str(id_arr[0]) + " " 
-                            + str(id_arr[0]%16) +"\n")
-                    fff.close()
+                logging.warning("fresh id: " + str(id_arr[0]) + " "
+                            + str(id_arr[0]%16))
 
 
             else:
@@ -743,30 +821,29 @@ def get_sample_data2(sock,raw_data_q, dconf, v):                 #{{{ payload_si
                 block_time = (block_time1 + block_time2)/2.
 
                 if output_fft:
-                    raw_data_q.send((udp_data_arr,id_arr, block_time))
+                    raw_data_q.put((udp_data_arr,id_arr, block_time))
                 else:
-                    raw_data_q.send((udp_data_arr,id_arr, block_time))
+                    raw_data_q.put((udp_data_arr,id_arr, block_time))
         else:
             print("block is not connected", id_tail_before, id_arr[0])
+            logging.debug("block is not connected %i, %i", id_tail_before, id_arr[0])
             print("program last ", time.time() - s_time)
             num_lost_all += 1
-            with open("block_dist.txt", 'a') as fff:
-                fff.write("fresh id: " + str(id_arr[0]) + " " 
-                        + str(id_arr[0]%16) + "\n")
-                fff.close()
-
+            logging.warning("disc blocked fresh id: " + str(id_arr[0]) + " "
+                        + str(id_arr[0]%16))
         if id_arr[-1] % 16 != 15:
             while tmp_id % 16 != 15:
                 sock.recv_into(warmup_buff, payload_size)
                 tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
                 payload_size], 'big')
 
+            id_tail_before = tmp_id
 
         time_now = time.perf_counter()
 
         if i == 200:
             block_time = epoctime2date((block_time1 + block_time2)/2.)
-            display_metrics(time_before, time_now, s_time, num_lost_all, 
+            display_metrics(time_before, time_now, s_time, num_lost_all,
                     data_conf)
             i = 0
 
