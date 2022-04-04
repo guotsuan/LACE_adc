@@ -118,7 +118,7 @@ v= RawValue('i', 0)
 v.value = 0
 
 
-def save_raw_data(rx, dconf, v):  #{{{
+def save_raw_data_simple(rx, dconf, v):  #{{{
     # We need to save:
     # 1. fft_data(n_blockas_to_save, fft_npoint//2+1)
     # 2. averaged epochtime,  (t0_time + t1_time)
@@ -130,6 +130,11 @@ def save_raw_data(rx, dconf, v):  #{{{
     file_stop_num = dconf['file_stop_num']
     file_prefix = labels[dconf['output_sel']]
     data_size = dconf['data_size']
+    id_tail_before = dconf['id_tail_before']
+    pstart_id = id_tail_before
+    data_type = dconf['data_type']
+
+    dur_per_frame = data_size/sample_rate_over_100/2.0
 
     fft_npoints = 65536
 
@@ -137,20 +142,71 @@ def save_raw_data(rx, dconf, v):  #{{{
     file_cnt = 0
     tot_file_cnt = 0
     file_path_old = ''
+    num_lost_all = 0.0
+    cycle = 4294967295
+    i = 0
 
     loop_forever = True
 
     ngrp = int(n_frames_per_loop * data_size / 2 /fft_npoints)
     print("ngrp: ", ngrp)
+
+    udp_data = bytearray(n_frames_per_loop*data_size)
+    udp_id = bytearray(n_frames_per_loop*id_size)
+
+    udp_id_buff = memoryview(udp_id)
+    udp_payload_buff = memoryview(udp_data)
+
     raw_data_to_file = np.zeros((n_blocks_to_save, fft_npoints//2))
     raw_id_to_file = np.zeros((n_blocks_to_save,n_frames_per_loop), dtype=np.uint32)
     raw_block_time_to_file = np.zeros((n_blocks_to_save,), dtype='S30')
 
+    start_t0 = datetime.datetime.fromtimestamp(t0_time)
+
     wstart = False
 
+    f_id = 0
+
+    pi1 = 0
+    pi2 = data_size
+
+    hi1 = 0
+    hi2 = id_size
+
+    i1 = 0
+    i2 = 0
+    count = 0
+    id_arr = None
+    nn = 0
+
+    s_time = time.perf_counter()
+
     while loop_forever:
-        raw_data, id_arr, block_time = raw_data_q.recv()
+        if count == 0:
+            pi1 = 0
+            pi2 = data_size
+
+            hi1 = 0
+            hi2 = id_size
+            time_before = time.perf_counter()
+
+        raw_data = raw_data_q.recv()
+
+        udp_payload_buff[pi1:pi2] = raw_data[0:data_size]
+        udp_id_buff[hi1:hi2] = raw_data[payload_size-4:payload_size]
+
+        count += 1
+
+        hi1 += id_size
+        hi2 += id_size
+
+        pi1 += data_size
+        pi2 += data_size
+
+        i += 1
+
         if nn == 0:
+            block_time = time.time()
             file_path = data_file_prefix(data_dir, block_time)
 
             if file_path_old =='':
@@ -168,146 +224,11 @@ def save_raw_data(rx, dconf, v):  #{{{
                     '_' + str(k))
 
 
-        raw_id_to_file[nn,...] = id_arr
-        raw_block_time_to_file[nn] = epoctime2date(block_time)
-        i1 = nn*ngrp
-        i2 = i1 + ngrp
-        raw_data_to_file[nn*ngrp:nn*ngrp+ngrp,...] = raw_data.reshape(-1, fft_npoints//2)
-        nn +=1
 
-        if i2 == n_blocks_to_save - 10:
-            if wstart:
-                wfile.result()
-                wstart = False
-
-        # print("nn: ", nn, i2, n_blocks_to_save)
-        if i2 == n_blocks_to_save:
-            nn = 0
-
-            wfile = executor.submit(dumpdata_hdf5, fout, raw_data_to_file,
-                    raw_id_to_file, raw_block_time_to_file)
-            wstart = True
-
-            # f=h5.File(fout +'.h5', 'w')
-
-            # dset = f.create_dataset(quantity, data=raw_data_to_file)
-
-            # dset = f.create_dataset('block_time', data=raw_block_time_to_file)
-            # dset = f.create_dataset('block_ids', data=raw_id_to_file)
-
-            # f.close()
-
-            tot_file_cnt += 1
-            file_cnt += 1
-
-            file_path_old = file_path
-
-
-        if file_stop_num < 0 or tot_file_cnt <= file_stop_num:
-            loop_forever = True
-        else:
-            loop_forever = False
-            v.value = 1
-            print("save raw data loop ended")
-            return
-
-   #}}}
-
-def save_raw_data_simple(rx, dconf, v):  #{{{
-    # We need to save:
-    # 1. fft_data(n_blockas_to_save, fft_npoint//2+1)
-    # 2. averaged epochtime,  (t0_time + t1_time)
-    # 3. the first ID of raw data frame and the last ID of raw data frame
-
-    n_blocks_to_save = dconf['n_blocks_to_save']
-    n_frames_per_loop = dconf['n_frames_per_loop']
-    quantity = dconf['quantity']
-    file_stop_num = dconf['file_stop_num']
-    file_prefix = labels[dconf['output_sel']]
-    data_size = dconf['data_size']
-    id_tail_before = dconf['id_tail_before']
-    data_type = dconf['data_type']
-
-    fft_npoints = 65536
-
-    nn = 0
-    file_cnt = 0
-    tot_file_cnt = 0
-    file_path_old = ''
-    num_lost_all = 0.0
-    cycle = 4294967295
-    i = 0
-
-    loop_forever = True
-
-    ngrp = int(n_frames_per_loop * data_size / 2 /fft_npoints)
-    print("ngrp: ", ngrp)
-
-    udp_payload = bytearray(n_frames_per_loop*payload_size)
-    udp_id = bytearray(n_frames_per_loop*id_size)
-
-    udp_id_buff = memoryview(udp_id)
-    udp_payload_buff = memoryview(udp_payload)
-
-    raw_data_to_file = np.zeros((n_blocks_to_save, fft_npoints//2))
-    raw_id_to_file = np.zeros((n_blocks_to_save,n_frames_per_loop), dtype=np.uint32)
-    raw_block_time_to_file = np.zeros((n_blocks_to_save,), dtype='S30')
-
-    start_t0 = datetime.datetime.fromtimestamp(t0_time)
-
-    wstart = False
-
-    f_id = 0
-
-    pi1 = 0
-    pi2 = data_size
-
-    hi1 = 0
-    hi2 = id_size
-    count = 0
-    id_arr = None
-
-    s_time = time.perf_counter()
-    time_before = s_time
-
-    while loop_forever:
-        if count == 0:
-            pi1 = 0
-            pi2 = data_size
-
-            hi1 = 0
-            hi2 = id_size
-
-        raw_data = raw_data_q.recv()
-
-        udp_payload_buff[pi1:pi2] = raw_data[0:data_size]
-        udp_id_buff[hi1:hi2] = raw_data[payload_size-4:payload_size]
-
-        count += 1
-
-        hi1 += id_size
-        hi2 += id_size
-
-        pi1 += data_size
-        pi2 += data_size
-
-        i += 1
-
-        # block_id_start_t = datetime.timedelta(milliseconds=(id_arr[0] -
-            # pstart_id)*dur_per_frame)
-
-        # dur_of_block = datetime.timedelta(milliseconds=(id_arr[-1] -
-            # id_arr[0])*dur_per_frame)
-
-        # t_frame_start = start_t0 + block_id_start_t
-
-        # for kk in range(i1,i2):
-            # raw_block_time_to_file[kk] = (t_frame_start +
-                    # kk*dur_of_block/ngrp).isoformat()
 
         if count == n_frames_per_loop:
             id_arr = np.uint32(np.frombuffer(udp_id, dtype='>u4'))
-            udp_data_arr = np.frombuffer(udp_payload, dtype=data_type)
+            udp_data_arr = np.frombuffer(udp_data, dtype=data_type)
 
             count = 0
 
@@ -315,6 +236,7 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
 
             id_head_before = id_arr[0]
             id_tail_before = id_arr[-1]
+
             if (diff == 1) or (diff == - cycle ):
                 # update the ids before for next section
 
@@ -335,16 +257,71 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
                                     id_arr[-1], id_arr[-1]%16)
 
                 else:
-                    pass
+                    i1 = nn*ngrp
+                    i2 = i1 + ngrp
+                    raw_data_to_file[nn*ngrp:nn*ngrp+ngrp,...] = udp_data_arr.reshape(-1, fft_npoints//2)
+                    raw_id_to_file[nn,...] = id_arr
+
+                    block_id_start_t = datetime.timedelta(milliseconds=(id_arr[0] -
+                        pstart_id)*dur_per_frame)
+
+                    dur_of_block = datetime.timedelta(milliseconds=(id_arr[-1] -
+                        id_arr[0])*dur_per_frame)
+
+                    t_frame_start = start_t0 + block_id_start_t
+
+                    for kk in range(i1,i2):
+                        raw_block_time_to_file[kk] = (t_frame_start +
+                                kk*dur_of_block/ngrp).isoformat()
+
+                    nn += 1
+
+                    if i2 >= (nn - 2) * ngrp:
+                        if wstart:
+                            wfile.result()
+                            wstart = False
+
+                    # print("nn: ", nn, i2, n_blocks_to_save)
+                    if i2 == n_blocks_to_save:
+                        nn = 0
+
+                        wfile = executor.submit(dumpdata_hdf5, fout, raw_data_to_file,
+                                raw_id_to_file, raw_block_time_to_file)
+                        wstart = True
+
+                        # f=h5.File(fout +'.h5', 'w')
+
+                        # dset = f.create_dataset(quantity, data=raw_data_to_file)
+
+                        # dset = f.create_dataset('block_time', data=raw_block_time_to_file)
+                        # dset = f.create_dataset('block_ids', data=raw_id_to_file)
+
+                        # f.close()
+
+                        tot_file_cnt += 1
+                        file_cnt += 1
+
+                        file_path_old = file_path
+
+
+                    if file_stop_num < 0 or tot_file_cnt <= file_stop_num:
+                        loop_forever = True
+                    else:
+                        loop_forever = False
+                        v.value = 1
+                        print("save raw data loop ended")
+                        return
+
 
 
             else:
                 print("block is not connected", id_tail_before, id_arr[0])
                 logging.debug("block is not connected %i, %i", id_tail_before, id_arr[0])
-                print("program last ", time.time() - s_time)
                 num_lost_all += 1
                 logging.warning("disc blocked fresh id: " + str(id_arr[0]) + " "
                             + str(id_arr[0]%16))
+
+
 
             if id_arr[-1] % 16 != 15:
                 while tmp_id % 16 != 15:
@@ -356,11 +333,12 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
 
             time_now = time.perf_counter()
 
-            if i // n_frames_per_loop == 100:
+            if i // n_frames_per_loop == 50:
                 # block_time = epoctime2date((time)
                 display_metrics(time_before, time_now, s_time, num_lost_all,
                         data_conf)
                 i = 0
+
 
 
 
@@ -394,6 +372,12 @@ if __name__ == '__main__':
         payload_size], 'big')
 
     print("Warmup finished with last data seqNo: ", id_tail_before,
+            tmp_id % block_size)
+
+    logfile = os.path.join(data_dir, 'rx.log')
+    logging.basicConfig(filename=logfile, level=logging.DEBUG,
+                        format='%(asctime)s %(levelname)s: %(message)s')
+    logging.info("Warmup finished with last data seqNo: %i, %i ", id_tail_before,
             tmp_id % block_size)
 
     t0_time = time.time()
