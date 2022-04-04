@@ -165,8 +165,6 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
 
     wstart = False
 
-    f_id = 0
-
     pi1 = 0
     pi2 = data_size
 
@@ -233,9 +231,6 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
             count = 0
 
             diff = id_arr[0] - id_tail_before
-
-            id_head_before = id_arr[0]
-            id_tail_before = id_arr[-1]
 
             if (diff == 1) or (diff == - cycle ):
                 # update the ids before for next section
@@ -321,7 +316,8 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
                 logging.warning("disc blocked fresh id: " + str(id_arr[0]) + " "
                             + str(id_arr[0]%16))
 
-
+            id_head_before = id_arr[0]
+            id_tail_before = id_arr[-1]
 
             if id_arr[-1] % 16 != 15:
                 while tmp_id % 16 != 15:
