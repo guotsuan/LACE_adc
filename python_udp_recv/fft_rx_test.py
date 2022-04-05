@@ -99,6 +99,7 @@ data_conf['data_size'] = data_size
 
 sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
+err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 
 if err:
     sock.close()
@@ -176,6 +177,7 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
     count = 0
     id_arr = None
     nn = 0
+    tmp_id = 0
 
     s_time = time.perf_counter()
 
@@ -271,18 +273,18 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
 
                     nn += 1
 
-                    if i2 >= (nn - 2) * ngrp:
-                        if wstart:
-                            wfile.result()
-                            wstart = False
+                    # if i2 >= (nn - 2) * ngrp:
+                        # if wstart:
+                            # wfile.result()
+                            # wstart = False
 
                     # print("nn: ", nn, i2, n_blocks_to_save)
                     if i2 == n_blocks_to_save:
                         nn = 0
 
-                        wfile = executor.submit(dumpdata_hdf5, fout, raw_data_to_file,
-                                raw_id_to_file, raw_block_time_to_file)
-                        wstart = True
+                        # wfile = executor.submit(dumpdata_hdf5, fout, raw_data_to_file,
+                                # raw_id_to_file, raw_block_time_to_file)
+                        # wstart = True
 
                         # f=h5.File(fout +'.h5', 'w')
 
@@ -320,12 +322,15 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
             id_tail_before = id_arr[-1]
 
             if id_arr[-1] % 16 != 15:
+                tmp_id = id_arr[-1]
                 while tmp_id % 16 != 15:
-                    sock.recv_into(warmup_buff, payload_size)
+                    warmup_data = raw_data_q.recv()
                     tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
                     payload_size], 'big')
 
                 id_tail_before = tmp_id
+                logging.warning("fixed tail id: %i, %i ",
+                                id_tail_before, id_tail_before%16)
 
             time_now = time.perf_counter()
 

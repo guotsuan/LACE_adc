@@ -540,8 +540,6 @@ def get_sample_data_simple(sock,raw_data_q, dconf, v):                 #{{{ payl
     print("get sampe pid: ", os.getpid())
 
     # the period of the consecutive ID is 2**32 - 1 = 4294967295
-    cycle = 4294967295
-    max_id = 0
     payload_size = dconf['payload_size']
 
     loop = True
