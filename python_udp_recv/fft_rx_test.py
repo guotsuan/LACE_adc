@@ -112,12 +112,30 @@ sock.bind((udp_ip, udp_port))
 executor = futures.ThreadPoolExecutor(max_workers=4)
 # raw_data_q = Queue()
 # raw_data_q = SimpleQueue()
+# save_data_q = Queue()
 raw_data_q, tx= Pipe(False)
 
 
 v= RawValue('i', 0)
 v.value = 0
 
+def save_data(data_q, v, quantity):
+
+    loop = True
+    while loop:
+        raw_data_to_file, raw_id_to_file, \
+            raw_block_time_to_file, fout = data_q.get()
+
+        f=h5.File(fout +'.h5', 'w')
+
+        dset = f.create_dataset(quantity, data=raw_data_to_file)
+
+        dset = f.create_dataset('block_time', data=raw_block_time_to_file)
+        dset = f.create_dataset('block_ids', data=raw_id_to_file)
+
+        f.close()
+        if v.value == 1:
+            loop = False
 
 def save_raw_data_simple(rx, dconf, v):  #{{{
     # We need to save:
@@ -216,7 +234,7 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
                 file_cnt = 0
 
             if loop_file:
-                k = file_cnt % 8
+                k = file_cnt % 10
             else:
                 k = file_cnt
 
@@ -254,6 +272,7 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
                                     id_arr[-1], id_arr[-1]%16)
 
                 else:
+
                     i1 = nn*ngrp
                     i2 = i1 + ngrp
                     raw_data_to_file[nn*ngrp:nn*ngrp+ngrp,...] = udp_data_arr.reshape(-1, fft_npoints//2)
@@ -271,25 +290,29 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
                         raw_block_time_to_file[kk] = (t_frame_start +
                                 kk*dur_of_block/ngrp).isoformat()
 
+
                     nn += 1
 
-                    # if i2 >= (nn - 2) * ngrp:
+                    # if i2 >= (nn - 1) * ngrp:
                         # if wstart:
                             # wfile.result()
                             # wstart = False
 
-                    # print("nn: ", nn, i2, n_blocks_to_save)
+                    # # print("nn: ", nn, i2, n_blocks_to_save)
                     if i2 == n_blocks_to_save:
                         nn = 0
-
-                        # wfile = executor.submit(dumpdata_hdf5, fout, raw_data_to_file,
-                                # raw_id_to_file, raw_block_time_to_file)
+                        # save_data_q.put((raw_data_to_file, raw_data_to_file,
+                                         # raw_block_time_to_file, fout))
+                        wfile = executor.submit(dumpdata_hdf5, fout, raw_data_to_file,
+                                raw_id_to_file, raw_block_time_to_file)
                         # wstart = True
 
                         # f=h5.File(fout +'.h5', 'w')
+                        # np.savez(fout, power=raw_data_to_file,
+                                # block_ids=raw_id_to_file,
+                                # block_time=raw_block_time_to_file)
 
                         # dset = f.create_dataset(quantity, data=raw_data_to_file)
-
                         # dset = f.create_dataset('block_time', data=raw_block_time_to_file)
                         # dset = f.create_dataset('block_ids', data=raw_id_to_file)
 
@@ -405,10 +428,12 @@ if __name__ == '__main__':
 
     # start a new Process to save the FFT data
 
-    save_raw=Process(target=save_raw_data_simple, args=(raw_data_q, data_conf, v),
-        daemon=True)
+    save_raw=Process(target=save_raw_data_simple, args=(raw_data_q,
+                                                        data_conf, v), daemon=True)
     save_raw.start()
 
+    # save = Process(target=save_data, args=(save_data_q, v, data_conf['quantity']))
+    # save.start()
     print("save_raw finshied", v.value)
     save_raw.join()
 

@@ -349,6 +349,12 @@ def save_raw_hdf5(data_dir, raw_data_to_file, raw_block_time_file,
             # f.close()
         # else:
 
+def dumpdata_savez(file_name, data, id_data, block_time):
+    np.savez(file_name, power=data,
+            block_ids=id_data,
+            block_time=block_time)
+
+    return
 
 def dumpdata_hdf5(file_name, data, id_data, block_time):
 
@@ -368,6 +374,7 @@ def dumpdata_hdf5(file_name, data, id_data, block_time):
         dset = f.create_dataset('block_ids', data=id_data)
 
         f.close()
+        return
 
 def dumpdata_fft_hdf5(file_name, data, id_data, block_time):
 
