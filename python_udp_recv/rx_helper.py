@@ -363,18 +363,18 @@ def dumpdata_hdf5(file_name, data, id_data, block_time):
         # n_frames_per_loop = data_conf['n_frames_per_loop']
         # data_size = data_conf['data_size']
         # n_blocks_to_save  = data_conf['n_blocks_to_save']
-        quantity = 'power'
-        # output_sel = data_conf['output_sel']
-        # file_stop_num = data_conf['file_stop_num']
+    quantity = 'power'
+    # output_sel = data_conf['output_sel']
+    # file_stop_num = data_conf['file_stop_num']
 
-        f=h5.File(file_name +'.h5','w')
-        dset = f.create_dataset(quantity, data=data)
-        dset = f.create_dataset('block_time', data=block_time)
-        # dset.attrs['block_time'] = epoctime2date(block_time)
-        dset = f.create_dataset('block_ids', data=id_data)
+    f=h5.File(file_name +'.h5','w')
+    dset = f.create_dataset(quantity, data=data)
+    dset = f.create_dataset('block_time', data=block_time)
+    # dset.attrs['block_time'] = epoctime2date(block_time)
+    dset = f.create_dataset('block_ids', data=id_data)
 
-        f.close()
-        return
+    f.close()
+    return
 
 def dumpdata_fft_hdf5(file_name, data, id_data, block_time):
 

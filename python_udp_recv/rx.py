@@ -26,7 +26,7 @@ import numpy as np
 
 # put all configrable parameters in params.py
 from params import *
-from rx_helper import * 
+from rx_helper import *
 
 data_dir = ''
 good = 0
@@ -252,7 +252,7 @@ if __name__ == '__main__':
         #######################################################################
         #                            saving data                              #
         #######################################################################
-        
+
         if loop_file:
             k = file_cnt % 8
         else:
@@ -263,17 +263,17 @@ if __name__ == '__main__':
             # pstart=False
 
         if no_lost:
-            # file_path = data_file_prefix(data_dir, block_time)
-            # fout = os.path.join(file_path, labels[output_sel] +
-                    # '_' + str(k))
+            file_path = data_file_prefix(data_dir, block_time)
+            fout = os.path.join(file_path, labels[output_sel] +
+                    '_' + str(k))
 
             # if not pstart:
 
-                # writefile=executor.submit(dumpdata_hdf5, 
-                        # fout,
-                        # udp_payload_arr,
-                        # id_arr,
-                        # block_time, num_lost_p)
+            writefile=executor.submit(dumpdata_hdf5,
+                    fout,
+                    udp_payload_arr,
+                    id_arr,
+                    block_time)
 
                 # pstart = True
 
@@ -295,7 +295,7 @@ if __name__ == '__main__':
         time_now = time.perf_counter()
 
         if i == 500:
-            display_metrics(time_before, time_now, s_time, num_lost_all, 
+            display_metrics(time_before, time_now, s_time, num_lost_all,
                     data_conf)
             i = 0
 

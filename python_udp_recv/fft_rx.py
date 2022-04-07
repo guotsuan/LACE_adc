@@ -198,10 +198,10 @@ def save_raw_data(rx, dconf, v):  #{{{
 
         nn +=1
 
-        if i2 >= (nn - 2) * ngrp:
-            if wstart:
-                wfile.result()
-                wstart = False
+        # if i2 >= (nn - 2) * ngrp:
+            # if wstart:
+                # wfile.result()
+                # wstart = False
 
         # print("nn: ", nn, i2, n_blocks_to_save)
         if i2 == n_blocks_to_save:
@@ -209,7 +209,7 @@ def save_raw_data(rx, dconf, v):  #{{{
 
             wfile = executor.submit(dumpdata_hdf5, fout, raw_data_to_file,
                     raw_id_to_file, raw_block_time_to_file)
-            wstart = True
+            # wstart = True
 
             # f=h5.File(fout +'.h5', 'w')
 
