@@ -356,7 +356,7 @@ def dumpdata_savez(file_name, data, id_data, block_time):
 
     return
 
-def dumpdata_hdf5(file_name, data, id_data, block_time):
+def dumpdata_hdf5(file_name, data, id_data, block_time, fout_dest, file_q):
 
         # print("save raw pid: ", os.getpid())
 
@@ -367,13 +367,15 @@ def dumpdata_hdf5(file_name, data, id_data, block_time):
         # output_sel = data_conf['output_sel']
         # file_stop_num = data_conf['file_stop_num']
 
-        f=h5.File(file_name +'.h5','w')
+        f=h5.File(file_name +'.h5','w', driver="core")
         dset = f.create_dataset(quantity, data=data)
         dset = f.create_dataset('block_time', data=block_time)
         # dset.attrs['block_time'] = epoctime2date(block_time)
         dset = f.create_dataset('block_ids', data=id_data)
 
         f.close()
+
+        file_q.put((file_name +'.h5', fout_dest + '.h5'))
         return
 
 def dumpdata_fft_hdf5(file_name, data, id_data, block_time):
