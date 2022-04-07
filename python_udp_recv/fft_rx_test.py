@@ -113,11 +113,20 @@ executor = futures.ThreadPoolExecutor(max_workers=4)
 # raw_data_q = Queue()
 # raw_data_q = SimpleQueue()
 # save_data_q = Queue()
+file_q = SimpleQueue()
 raw_data_q, tx= Pipe(False)
 
 
 v= RawValue('i', 0)
 v.value = 0
+
+def move_file(file_q, v):
+    loop = True
+    while loop:
+        file_to_move, file_dest = file_q.get()
+        shutil.move(file_to_move, file_dest)
+        if v.value == 1:
+            loop = False
 
 def save_data(data_q, v, quantity):
 
@@ -158,12 +167,15 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
     fft_npoints = 65536
 
     nn = 0
+    time_last = 0.0
     file_cnt = 0
     tot_file_cnt = 0
     file_path_old = ''
+    memfile_path_old = ''
     num_lost_all = 0.0
     cycle = 4294967295
     i = 0
+    time_now = 0.0
 
     loop_forever = True
 
@@ -182,6 +194,9 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
 
     start_t0 = datetime.datetime.fromtimestamp(t0_time)
 
+    raw_data = bytearray(payload_size)
+    raw_data_buff = memoryview(raw_data)
+
     wstart = False
 
     pi1 = 0
@@ -199,6 +214,10 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
 
     s_time = time.perf_counter()
 
+    mem_dir = '/dev/shm/recv/'
+    if not os.path.exists(mem_dir):
+        os.makedirs(mem_dir )
+
     while loop_forever:
         if count == 0:
             pi1 = 0
@@ -208,10 +227,9 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
             hi2 = id_size
             time_before = time.perf_counter()
 
-        raw_data = raw_data_q.recv()
-
-        udp_payload_buff[pi1:pi2] = raw_data[0:data_size]
-        udp_id_buff[hi1:hi2] = raw_data[payload_size-4:payload_size]
+        raw_data_q.recv_bytes_into(raw_data_buff)
+        udp_payload_buff[pi1:pi2] = raw_data_buff[0:data_size]
+        udp_id_buff[hi1:hi2] = raw_data_buff[payload_size-4:payload_size]
 
         count += 1
 
@@ -240,7 +258,8 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
 
             fout = os.path.join(file_path, file_prefix +
                     '_' + str(k))
-
+            mem_fout = os.path.join(mem_dir, file_prefix +
+                    '_' + str(k))
 
 
 
@@ -303,20 +322,22 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
                         nn = 0
                         # save_data_q.put((raw_data_to_file, raw_data_to_file,
                                          # raw_block_time_to_file, fout))
-                        wfile = executor.submit(dumpdata_hdf5, fout, raw_data_to_file,
-                                raw_id_to_file, raw_block_time_to_file)
+                        wfile = executor.submit(dumpdata_hdf5, mem_fout, raw_data_to_file,
+                                raw_id_to_file, raw_block_time_to_file, fout,
+                                                file_q)
                         # wstart = True
-
-                        # f=h5.File(fout +'.h5', 'w')
                         # np.savez(fout, power=raw_data_to_file,
                                 # block_ids=raw_id_to_file,
                                 # block_time=raw_block_time_to_file)
+
+                        # f=h5.File(mem_fout +'.h5', 'w',driver="core")
 
                         # dset = f.create_dataset(quantity, data=raw_data_to_file)
                         # dset = f.create_dataset('block_time', data=raw_block_time_to_file)
                         # dset = f.create_dataset('block_ids', data=raw_id_to_file)
 
                         # f.close()
+
 
                         tot_file_cnt += 1
                         file_cnt += 1
@@ -347,7 +368,7 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
             if id_arr[-1] % 16 != 15:
                 tmp_id = id_arr[-1]
                 while tmp_id % 16 != 15:
-                    warmup_data = raw_data_q.recv()
+                    raw_data_q.recv_bytes_into(warmup_buff)
                     tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
                     payload_size], 'big')
 
@@ -357,8 +378,9 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
 
             time_now = time.perf_counter()
 
-            if i // n_frames_per_loop == 50:
+            if time_now - time_last > 10.0:
                 # block_time = epoctime2date((time)
+                time_last = time.perf_counter()
                 display_metrics(time_before, time_now, s_time, num_lost_all,
                         data_conf)
                 i = 0
@@ -432,10 +454,14 @@ if __name__ == '__main__':
                                                         data_conf, v), daemon=True)
     save_raw.start()
 
+    file_move=Process(target=move_file, args=(file_q, v))
+    file_move.start()
+
     # save = Process(target=save_data, args=(save_data_q, v, data_conf['quantity']))
     # save.start()
     print("save_raw finshied", v.value)
     save_raw.join()
+    #file_move.join()
 
     if v.value == 1:
         print("rx_fft.py will exit, clean up....\n")
