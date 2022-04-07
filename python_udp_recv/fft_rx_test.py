@@ -182,6 +182,9 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
 
     start_t0 = datetime.datetime.fromtimestamp(t0_time)
 
+    raw_data = bytearray(payload_size)
+    raw_data_buff = memoryview(raw_data)
+
     wstart = False
 
     pi1 = 0
@@ -208,10 +211,9 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
             hi2 = id_size
             time_before = time.perf_counter()
 
-        raw_data = raw_data_q.recv()
-
-        udp_payload_buff[pi1:pi2] = raw_data[0:data_size]
-        udp_id_buff[hi1:hi2] = raw_data[payload_size-4:payload_size]
+        raw_data_q.recv_bytes_into(raw_data_buff)
+        udp_payload_buff[pi1:pi2] = raw_data_buff[0:data_size]
+        udp_id_buff[hi1:hi2] = raw_data_buff[payload_size-4:payload_size]
 
         count += 1
 
@@ -347,7 +349,7 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
             if id_arr[-1] % 16 != 15:
                 tmp_id = id_arr[-1]
                 while tmp_id % 16 != 15:
-                    warmup_data = raw_data_q.recv()
+                    raw_data_q.recv_bytes_into(warmup_buff)
                     tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
                     payload_size], 'big')
 

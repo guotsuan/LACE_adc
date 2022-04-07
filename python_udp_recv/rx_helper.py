@@ -548,11 +548,14 @@ def get_sample_data_simple(sock,raw_data_q, dconf, v):                 #{{{ payl
 
     # the period of the consecutive ID is 2**32 - 1 = 4294967295
     payload_size = dconf['payload_size']
+    udp_payload = bytearray(payload_size)
+    payload_buff = memoryview(udp_payload)
 
     loop = True
 
     while loop:
-        raw_data_q.send(sock.recv(payload_size))
+        sock.recv_into(payload_buff, payload_size)
+        raw_data_q.send_bytes(payload_buff)
         if v.value == 1:
             loop = False
             print("read finished ")
