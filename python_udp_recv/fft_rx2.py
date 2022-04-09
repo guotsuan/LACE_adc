@@ -110,41 +110,12 @@ sock.bind((udp_ip, udp_port))
 
 
 executor = futures.ThreadPoolExecutor(max_workers=4)
-# raw_data_q = Queue()
-# raw_data_q = SimpleQueue()
-# save_data_q = Queue()
-# file_q = SimpleQueue()
 raw_data_q, tx= Pipe(False)
 
 
 v= RawValue('i', 0)
 v.value = 0
 
-def move_file(file_q, v):
-    loop = True
-    while loop:
-        file_to_move, file_dest = file_q.get()
-        shutil.move(file_to_move, file_dest)
-        if v.value == 1:
-            loop = False
-
-def save_data(data_q, v, quantity):
-
-    loop = True
-    while loop:
-        raw_data_to_file, raw_id_to_file, \
-            raw_block_time_to_file, fout = data_q.get()
-
-        f=h5.File(fout +'.h5', 'w')
-
-        dset = f.create_dataset(quantity, data=raw_data_to_file)
-
-        dset = f.create_dataset('block_time', data=raw_block_time_to_file)
-        dset = f.create_dataset('block_ids', data=raw_id_to_file)
-
-        f.close()
-        if v.value == 1:
-            loop = False
 
 def save_raw_data_simple(rx, dconf, v):  #{{{
     # We need to save:
@@ -450,17 +421,12 @@ if __name__ == '__main__':
         daemon=True)
     read.start()
 
-    # start a new Process to save the FFT data
+    # start a new Process to save the data from fft port
 
     save_raw=Process(target=save_raw_data_simple, args=(raw_data_q,
                                                         data_conf, v), daemon=True)
     save_raw.start()
 
-    # file_move=Process(target=move_file, args=(file_q, v))
-    # file_move.start()
-
-    # save = Process(target=save_data, args=(save_data_q, v, data_conf['quantity']))
-    # save.start()
     print("save_raw finshied", v.value)
     save_raw.join()
 
