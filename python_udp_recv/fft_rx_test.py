@@ -113,7 +113,7 @@ executor = futures.ThreadPoolExecutor(max_workers=4)
 # raw_data_q = Queue()
 # raw_data_q = SimpleQueue()
 # save_data_q = Queue()
-file_q = SimpleQueue()
+# file_q = SimpleQueue()
 raw_data_q, tx= Pipe(False)
 
 
@@ -322,9 +322,11 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
                         nn = 0
                         # save_data_q.put((raw_data_to_file, raw_data_to_file,
                                          # raw_block_time_to_file, fout))
-                        wfile = executor.submit(dumpdata_hdf5, mem_fout, raw_data_to_file,
-                                raw_id_to_file, raw_block_time_to_file, fout,
-                                                file_q)
+                        wfile = executor.submit(dumpdata_hdf5, fout, raw_data_to_file,
+                                raw_id_to_file, raw_block_time_to_file)
+                        # wfile = executor.submit(dumpdata_hdf5, mem_fout, raw_data_to_file,
+                                # raw_id_to_file, raw_block_time_to_file, fout,
+                                                # file_q)
                         # wstart = True
                         # np.savez(fout, power=raw_data_to_file,
                                 # block_ids=raw_id_to_file,
@@ -454,14 +456,13 @@ if __name__ == '__main__':
                                                         data_conf, v), daemon=True)
     save_raw.start()
 
-    file_move=Process(target=move_file, args=(file_q, v))
-    file_move.start()
+    # file_move=Process(target=move_file, args=(file_q, v))
+    # file_move.start()
 
     # save = Process(target=save_data, args=(save_data_q, v, data_conf['quantity']))
     # save.start()
     print("save_raw finshied", v.value)
     save_raw.join()
-    #file_move.join()
 
     if v.value == 1:
         print("rx_fft.py will exit, clean up....\n")

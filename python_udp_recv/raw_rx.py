@@ -17,7 +17,7 @@ import time
 import datetime
 import threading
 import shutil
-from multiprocessing import Process, shared_memory
+from multiprocessing import Process, shared_memory, SimpleQueue, RawValue
 
 from  threading import Thread
 from concurrent import futures
@@ -127,6 +127,18 @@ payload_buff = memoryview(udp_payload)
 data_buff = memoryview(udp_data)
 id_buff = memoryview(udp_id)
 
+file_q = SimpleQueue()
+v= RawValue('i', 0)
+v.value = 0
+
+def move_file(file_q, v):
+    loop = True
+    while loop:
+        file_to_move, file_dest = file_q.get()
+        if os.path.exists(file_to_move):
+            shutil.move(file_to_move, file_dest)
+        if v.value == 1:
+            loop = False
 
 
 if __name__ == '__main__':
@@ -172,13 +184,21 @@ if __name__ == '__main__':
     time_before = s_time
     t0_time = time.time()
 
+    mem_dir = '/dev/shm/recv/'
+    if not os.path.exists(mem_dir):
+        os.makedirs(mem_dir)
+
     # FIXME: how to save time xxxxxx.xxxx properly
     save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time, id_tail_before)
     # Saveing parameters
     shutil.copy('./params.py', data_dir)
     file_path_old = data_file_prefix(data_dir, t0_time)
 
-    executor = futures.ThreadPoolExecutor(max_workers=3)
+    executor = futures.ThreadPoolExecutor(max_workers=6)
+
+    # file_move=Process(target=move_file, args=(file_q, v))
+    # file_move.start()
+    # file_move.join()
 
     while forever:
         if file_stop_num < 0:
@@ -253,7 +273,7 @@ if __name__ == '__main__':
         #######################################################################
 
         if loop_file:
-            k = file_cnt % 8
+            k = file_cnt % 50
         else:
             k = file_cnt
 
@@ -267,7 +287,10 @@ if __name__ == '__main__':
             fout = os.path.join(file_path, labels[output_sel] +
                     '_' + str(k))
 
-            # if not pstart:
+            writefile = executor.submit(dumpdata_hdf5, fout, udp_payload_arr,
+                    id_arr, block_time)
+
+
 
                 # writefile=executor.submit(dumpdata_hdf5,
                         # fout,
@@ -282,12 +305,12 @@ if __name__ == '__main__':
                 # # writefile.start()
                 # pstart = True
 
-                # if file_path == file_path_old:
-                    # file_cnt += 1
-                # else:
-                    # file_cnt = 0
+            if file_path == file_path_old:
+                file_cnt += 1
+            else:
+                file_cnt = 0
 
-                # file_path_old = file_path
+            file_path_old = file_path
 
         else:
             print("block is dropped")
@@ -310,9 +333,12 @@ if __name__ == '__main__':
 
         if (file_stop_num > 0) and (file_cnt > file_stop_num) :
             forever = False
+            v.value = 1
 
         i += 1
 
+
+    file_move.join()
     sock.close()
     # executor.result()
 

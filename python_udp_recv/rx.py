@@ -269,7 +269,7 @@ if __name__ == '__main__':
 
             # if not pstart:
 
-            writefile=executor.submit(dumpdata_hdf5,
+            writefile=executor.submit(dumpdata_savez,
                     fout,
                     udp_payload_arr,
                     id_arr,
