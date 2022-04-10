@@ -267,13 +267,16 @@ if __name__ == '__main__':
             fout = os.path.join(file_path, labels[output_sel] +
                     '_' + str(k))
 
-            # if not pstart:
+            np.savez(fout, voltage=udp_payload_arr,
+                    block_ids=id_arr,
+                    block_time=block_time)
+                # if not pstart:
 
-            writefile=executor.submit(dumpdata_savez,
-                    fout,
-                    udp_payload_arr,
-                    id_arr,
-                    block_time)
+            # writefile=executor.submit(dumpdata_savez,
+                    # fout,
+                    # udp_payload_arr,
+                    # id_arr,
+                    # block_time)
 
                 # pstart = True
 

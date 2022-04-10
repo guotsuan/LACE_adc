@@ -168,8 +168,6 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
     raw_data = bytearray(payload_size)
     raw_data_buff = memoryview(raw_data)
 
-    wstart = False
-
     pi1 = 0
     pi2 = data_size
 
@@ -184,10 +182,6 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
     tmp_id = 0
 
     s_time = time.perf_counter()
-
-    mem_dir = '/dev/shm/recv/'
-    if not os.path.exists(mem_dir):
-        os.makedirs(mem_dir )
 
     while loop_forever:
         if count == 0:
@@ -229,10 +223,6 @@ def save_raw_data_simple(rx, dconf, v):  #{{{
 
             fout = os.path.join(file_path, file_prefix +
                     '_' + str(k))
-            mem_fout = os.path.join(mem_dir, file_prefix +
-                    '_' + str(k))
-
-
 
         if count == n_frames_per_loop:
             id_arr = np.uint32(np.frombuffer(udp_id, dtype='>u4'))

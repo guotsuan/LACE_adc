@@ -105,8 +105,12 @@ num_lost_all = 0.0
 data_conf['payload_size'] = payload_size
 data_conf['id_size'] = id_size
 data_conf['data_size'] = data_size
+
+n_blocks_to_save = data_conf['n_blocks_to_save']
 n_frames_per_loop = data_conf['n_frames_per_loop']
 file_stop_num = data_conf['file_stop_num']
+fft_npoints = data_conf['fft_npoint']
+
 
 sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
@@ -175,7 +179,13 @@ if __name__ == '__main__':
     print("Warmup finished with last data seqNo: ", id_tail_before,
             tmp_id % block_size)
 
-    i = 0
+
+    logfile = os.path.join(data_dir, 'rx.log')
+    logging.basicConfig(filename=logfile, level=logging.DEBUG,
+                        format='%(asctime)s %(levelname)s: %(message)s')
+    logging.info("Warmup finished with last data seqNo: %i, %i ", id_tail_before,
+            tmp_id % block_size)
+
     file_cnt = 0
     loop_cnt = 0
     fft_block_cnt = 0
@@ -183,24 +193,48 @@ if __name__ == '__main__':
     s_time = time.perf_counter()
     time_before = s_time
     t0_time = time.time()
+    start_t0 = datetime.datetime.fromtimestamp(t0_time)
 
-    mem_dir = '/dev/shm/recv/'
-    if not os.path.exists(mem_dir):
-        os.makedirs(mem_dir)
-
-    # FIXME: how to save time xxxxxx.xxxx properly
     save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time, id_tail_before)
+
+    pstart_id = id_tail_before
     # Saveing parameters
     shutil.copy('./params.py', data_dir)
+
     file_path_old = data_file_prefix(data_dir, t0_time)
 
-    executor = futures.ThreadPoolExecutor(max_workers=6)
+    executor = futures.ThreadPoolExecutor(max_workers=3)
 
-    # file_move=Process(target=move_file, args=(file_q, v))
-    # file_move.start()
-    # file_move.join()
+    raw_data_to_file = np.zeros((n_blocks_to_save, fft_npoints))
+    raw_id_to_file = np.zeros((n_blocks_to_save,n_frames_per_loop), dtype=np.uint32)
+    raw_block_time_to_file = np.zeros((n_blocks_to_save,), dtype='S30')
 
-    while forever:
+    file_prefix = labels[data_conf['output_sel']]
+
+    ngrp = int(n_frames_per_loop * data_size / 2 /fft_npoints)
+    dur_per_frame = data_size/sample_rate_over_100/2.0
+
+    pi1 = 0
+    pi2 = data_size
+
+    hi1 = 0
+    hi2 = id_size
+
+    i1 = 0
+    i2 = 0
+    count = 0
+    id_arr = None
+    nn = 0
+    tmp_id = 0
+    tot_file_cnt = 0
+    time_last = 0.0
+
+    s_time = time.perf_counter()
+
+    loop_forever = True
+
+    while loop_forever:
+
         if file_stop_num < 0:
             try:
                 c = sys.stdin.read(1)
@@ -214,10 +248,9 @@ if __name__ == '__main__':
 
         hi1 = 0
         hi2 = id_size
+        time_before = time.perf_counter()
 
         count_down = n_frames_per_loop
-        payload_buff = payload_buff_head
-        block_time1 = time.time()
 
         while count_down:
             sock.recv_into(payload_buff, payload_size)
@@ -232,114 +265,121 @@ if __name__ == '__main__':
             count_down -= 1
 
         id_arr = np.uint32(np.frombuffer(udp_id,dtype='>u4'))
-        block_time2 = time.time()
-
-        block_time = (block_time1 + block_time2) * 0.5
         diff = id_arr[0] - id_tail_before
-        if (diff == 1) or (diff == - cycle ):
-            pass
-        else:
-            print("block is not connected", id_tail_before, id_arr[0])
-            print("program last ", time.time() - s_time)
-            num_lost_all += 1
-            # raise ValueError("block is not connected")
 
-        # update the ids before for next section
-        id_head_before = id_arr[0]
-        id_tail_before = id_arr[-1]
+        block_time = time.time()
+        file_path = data_file_prefix(data_dir, block_time)
 
-        udp_payload_arr = np.frombuffer(udp_data, dtype=data_type)
-        id_offsets = np.diff(id_arr) % cycle
+        if file_path_old =='':
+            file_path_old = file_path
 
-
-        idx = id_offsets > 1
-
-        num_lost_p = len(id_offsets[idx])
-        if (num_lost_p > 0):
-            if data_conf['save_lost']:
-                no_lost = True
-            else:
-                no_lost = False
-
-            bad=np.arange(id_offsets.size)[idx][0]
-            print(id_arr[bad-1:bad+2])
-            num_lost_all += num_lost_p
-        else:
-            no_lost = True
-
-
-        #######################################################################
-        #                            saving data                              #
-        #######################################################################
+        if file_path != file_path_old:
+            file_cnt = 0
 
         if loop_file:
-            k = file_cnt % 50
+            k = file_cnt % 10
         else:
             k = file_cnt
 
-        # if pstart:
-            # writefile.result()
-            # pstart=False
+        fout = os.path.join(file_path, file_prefix +
+                '_' + str(k))
 
+        mem_dir = '/dev/shm/recv/'
+        mem_fout = os.path.join(mem_dir, file_prefix + '_' + str(k))
 
-        if no_lost:
-            file_path = data_file_prefix(data_dir, block_time)
-            fout = os.path.join(file_path, labels[output_sel] +
-                    '_' + str(k))
+        if (diff == 1) or (diff == - cycle ):
+            # update the ids before for next section
 
-            writefile = executor.submit(dumpdata_hdf5, fout, udp_payload_arr,
-                    id_arr, block_time)
+            id_offsets = np.diff(id_arr) % cycle
+            idx = id_offsets > 1
+            num_lost_p = len(id_offsets[idx])
 
+            if id_arr[0] % 16 != 0:
+                num_lost_p = 1
 
+            if (num_lost_p > 0):
+                bad=np.arange(id_offsets.size)[idx][0]
+                print(id_arr[bad-2:bad+3])
+                logging.debug("id numb : " + str(id_arr[bad-2:bad+3]))
+                num_lost_all += num_lost_p
+                logging.warning("fresh id %i, %i, %i, %i" ,
+                            id_arr[0], id_arr[0]%16,
+                                id_arr[-1], id_arr[-1]%16)
 
-                # writefile=executor.submit(dumpdata_hdf5,
-                        # fout,
-                        # udp_payload_arr,
-                        # id_arr,
-                        # block_time)
-
-                # # writefile = Thread(target=dumpdata,
-                        # # args=(fout,shm_udp_payload_arr.name,
-                        # # shm_id_arr.name,
-                        # # t0_time, block_time, num_lost_p, save_hdf5))
-                # # writefile.start()
-                # pstart = True
-
-            if file_path == file_path_old:
-                file_cnt += 1
             else:
-                file_cnt = 0
+                udp_data_arr = np.frombuffer(udp_data, dtype=data_type)
+                i1 = nn*ngrp
+                i2 = i1 + ngrp
+                raw_data_to_file[nn*ngrp:nn*ngrp+ngrp,...] = udp_data_arr.reshape(-1, fft_npoints)
+                raw_id_to_file[nn,...] = id_arr
 
-            file_path_old = file_path
+                block_id_start_t = datetime.timedelta(milliseconds=(id_arr[0] -
+                    pstart_id)*dur_per_frame)
+
+                dur_of_block = datetime.timedelta(milliseconds=(id_arr[-1] -
+                    id_arr[0])*dur_per_frame)
+
+                t_frame_start = start_t0 + block_id_start_t
+
+                for kk in range(i1,i2):
+                    raw_block_time_to_file[kk] = (t_frame_start +
+                            kk*dur_of_block/ngrp).isoformat()
+
+
+                nn += 1
+
+                if i2 == n_blocks_to_save:
+                    nn = 0
+                    # wfile = executor.submit(dumpdata_hdf5, mem_fout, raw_data_to_file,
+                            # raw_id_to_file, raw_block_time_to_file)
+                    # f=h5.File(mem_fout +'.h5', 'w',driver="core")
+
+                    # dset = f.create_dataset(quantity, data=raw_data_to_file)
+                    # dset = f.create_dataset('block_time', data=raw_block_time_to_file)
+                    # dset = f.create_dataset('block_ids', data=raw_id_to_file)
+
+                    # f.close()
+
+
+                    tot_file_cnt += 1
+                    file_cnt += 1
+
+                    file_path_old = file_path
+
+
+                if file_stop_num < 0 or tot_file_cnt <= file_stop_num:
+                    loop_forever = True
 
         else:
-            print("block is dropped")
+            print("block is not connected", id_tail_before, id_arr[0])
+            logging.debug("block is not connected %i, %i", id_tail_before, id_arr[0])
+            num_lost_all += 1
+            logging.warning("disc blocked fresh id: " + str(id_arr[0]) + " "
+                        + str(id_arr[0]%16))
 
+        id_head_before = id_arr[0]
+        id_tail_before = id_arr[-1]
 
+        if id_arr[-1] % 16 != 15:
+            tmp_id = id_arr[-1]
+            while tmp_id % 16 != 15:
+                sock.recv_into(warmup_buff, payload_size)
+                tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
+                payload_size], 'big')
 
+            id_tail_before = tmp_id
+            logging.warning("fixed tail id: %i, %i ",
+                            id_tail_before, id_tail_before%16)
 
-
-        #######################################################################
-        #                           information out                           #
-        #######################################################################
         time_now = time.perf_counter()
 
-        if i== 500:
+        if time_now - time_last > 10.0:
+            # block_time = epoctime2date((time)
+            time_last = time.perf_counter()
             display_metrics(time_before, time_now, s_time, num_lost_all,
                     data_conf)
-            i = 0
-
-        time_before = time_now
-
-        if (file_stop_num > 0) and (file_cnt > file_stop_num) :
-            forever = False
-            v.value = 1
-
-        i += 1
 
 
-    file_move.join()
     sock.close()
-    # executor.result()
 
 
