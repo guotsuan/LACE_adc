@@ -379,6 +379,33 @@ def dumpdata_hdf5(file_name, data, id_data, block_time):
 
     return
 
+
+def dumpdata_hdf5_q(file_name, data, id_data, block_time, fout_dst, file_q):
+
+    # print("save raw pid: ", os.getpid())
+
+    # n_frames_per_loop = data_conf['n_frames_per_loop']
+    # data_size = data_conf['data_size']
+    # n_blocks_to_save  = data_conf['n_blocks_to_save']
+
+    quantity = data_conf['quantity']
+    # output_sel = data_conf['output_sel']
+    # file_stop_num = data_conf['file_stop_num']
+
+    f=h5.File(file_name +'.h5','w')
+    # f=h5.File(file_name +'.h5','w', driver="core")
+    dset = f.create_dataset(quantity, data=data)
+    dset = f.create_dataset('block_time', data=block_time)
+    # dset.attrs['block_time'] = epoctime2date(block_time)
+    dset = f.create_dataset('block_ids', data=id_data)
+
+    f.close()
+
+    file_q.put((file_name +'.h5', fout_dst +'.h5'))
+
+    return
+
+
 def dumpdata_fft_hdf5(file_name, data, id_data, block_time):
 
         avg_n = data_conf['avg_n']

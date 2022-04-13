@@ -330,8 +330,8 @@ if __name__ == '__main__':
 
                 if i2 == n_blocks_to_save:
                     nn = 0
-                    # wfile = executor.submit(dumpdata_hdf5, mem_fout, raw_data_to_file,
-                            # raw_id_to_file, raw_block_time_to_file)
+                    wfile = executor.submit(dumpdata_hdf5, mem_fout, raw_data_to_file,
+                            raw_id_to_file, raw_block_time_to_file)
                     # f=h5.File(mem_fout +'.h5', 'w',driver="core")
 
                     # dset = f.create_dataset(quantity, data=raw_data_to_file)
