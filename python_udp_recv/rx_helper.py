@@ -21,7 +21,11 @@ import mkl_fft
 import logging
 from multiprocessing import shared_memory
 
+import cupyx.scipy.fft as cufft
+
 from params import split_by_min, data_conf,fft_method,labels
+
+plan = None
 
 def save_meta_file(fname, stime, s_id):
     ff = h5.File(fname, 'w')
@@ -115,6 +119,7 @@ def set_noblocking_keyboard():
     fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
 def compute_fft_data2(data, avg_n, fft_length, scale_f, quantity, mean=True):
+    fft_method = 'cupy'
     if mean:
         fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
     else:
@@ -145,11 +150,11 @@ def compute_fft_data2(data, avg_n, fft_length, scale_f, quantity, mean=True):
             mean_fft_result = np.mean(mean_fft_result, axis=1)
     else:
         if quantity == 'amplitude':
-            # mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
-            mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
+            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
+            # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
         elif quantity == 'power':
-            # mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
-            mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2
+            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
+            # mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2
 
         if mean:
             mean_fft_result = np.mean(mean_fft_result, axis=1)
@@ -384,24 +389,80 @@ def dumpdata_hdf5_q(file_name, data, id_data, block_time, fout_dst, file_q):
 
     # print("save raw pid: ", os.getpid())
 
-    # n_frames_per_loop = data_conf['n_frames_per_loop']
-    # data_size = data_conf['data_size']
-    # n_blocks_to_save  = data_conf['n_blocks_to_save']
-
+    n_frames_per_loop = data_conf['n_frames_per_loop']
+    data_size = data_conf['data_size']
+    avg_n = data_conf['avg_n']
+    fft_npoint = data_conf['fft_npoint']
+    scale_f = data_conf['voltage_scale_f']
+    output_fft = data_conf['output_fft']
     quantity = data_conf['quantity']
-    # output_sel = data_conf['output_sel']
-    # file_stop_num = data_conf['file_stop_num']
+    start_id = data_conf['id_tail_before']
+    start_time = data_conf['t0_time']
+    n_blocks_to_save = data_conf['n_blocks_to_save']
+    sample_rate_over_100 = 480000
 
-    f=h5.File(file_name +'.h5','w')
+    dur_per_frame = data_size/sample_rate_over_100/2.0
+
+    global plan, ngrp, nn
+    global fft_id_to_file
+    global fft_data_to_file
+    global fft_block_time_to_file
+
+    if output_fft:
+        data_in = cp.asarray(scale_f *data).astype(cp.float32).reshape(-1, avg_n, fft_npoint)
+        if plan is None:
+            plan = cufft.get_fft_plan(data_in, axes=2, value_type='R2C')
+
+        fft_out = cufft.rfft(data_in, axis=2, plan=plan)
+        mean_out = cp.mean(cp.abs(fft_out), axis=1)
+
+        if quantity == 'amplitude':
+            mean_out = cp.mean(cp.abs(fft_out), axis=1)
+        elif quantity =='power':
+            mean_out = cp.mean(cp.abs(fft_out)**2, axis=1)
+        else:
+            print("wrong")
+
+    dt_frame_start = datetime.timedelta(milliseconds=(id_data[0] -
+        start_id)*dur_per_frame)
+
+    t_frame_start = start_time + dt_frame_start
+
+    dur_of_block = datetime.timedelta(milliseconds=(id_data[-1] -
+        id_data[0])*dur_per_frame)
+
+    for kk in range(int(ngrp)):
+        fft_block_time_to_file[kk] = (t_frame_start +
+                (kk + 0.5)*dur_of_block).isoformat()
+
+    i1 = nn*ngrp
+    i2 = i1 + ngrp
+    fft_data_to_file[nn*ngrp:nn*ngrp+ngrp,...] = mean_out
+
+    fft_id_to_file[nn,...] = id_data
+    nn += 1
+
+    if nn == n_blocks_to_save:
+        nn = 0
+        print("start to save")
+        f=h5.File(file_name +'.h5','w')
+
     # f=h5.File(file_name +'.h5','w', driver="core")
-    dset = f.create_dataset(quantity, data=data)
-    dset = f.create_dataset('block_time', data=block_time)
-    # dset.attrs['block_time'] = epoctime2date(block_time)
-    dset = f.create_dataset('block_ids', data=id_data)
+    # dset = f.create_dataset(quantity, data=data)
+    # dset = f.create_dataset(quantity, data=mean_out.get())
 
-    f.close()
+        if output_fft:
+            dset = f.create_dataset(quantity, data=mean_out.get())
+        else:
+            dset = f.create_dataset(quantity, data=data)
 
-    file_q.put((file_name +'.h5', fout_dst +'.h5'))
+        dset = f.create_dataset('block_time', data=block_time)
+        dset = f.create_dataset('block_ids', data=id_data)
+
+
+        f.close()
+
+        file_q.put((file_name +'.h5', fout_dst +'.h5'))
 
     return
 
