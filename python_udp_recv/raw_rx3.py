@@ -178,6 +178,12 @@ if __name__ == '__main__':
     print("Warmup finished with last data seqNo: ", id_tail_before,
             tmp_id % block_size)
 
+    logfile = os.path.join(data_dir, 'rx.log')
+    logging.basicConfig(filename=logfile, level=logging.DEBUG,
+                        format='%(asctime)s %(levelname)s: %(message)s')
+    logging.info("Warmup finished with last data seqNo: %i, %i ", id_tail_before,
+            tmp_id % block_size)
+
     i = 0
     file_cnt = 0
     loop_cnt = 0

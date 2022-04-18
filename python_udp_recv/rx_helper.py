@@ -384,85 +384,90 @@ def dumpdata_hdf5(file_name, data, id_data, block_time):
 
     return
 
-
-def dumpdata_hdf5_q(file_name, data, id_data, block_time, fout_dst, file_q):
+def dumpdata_hdf5_fft_q3(data, id_data, block_time, file_q):
 
     # print("save raw pid: ", os.getpid())
 
-    n_frames_per_loop = data_conf['n_frames_per_loop']
-    data_size = data_conf['data_size']
     avg_n = data_conf['avg_n']
     fft_npoint = data_conf['fft_npoint']
     scale_f = data_conf['voltage_scale_f']
-    output_fft = data_conf['output_fft']
     quantity = data_conf['quantity']
-    start_id = data_conf['id_tail_before']
-    start_time = data_conf['t0_time']
-    n_blocks_to_save = data_conf['n_blocks_to_save']
-    sample_rate_over_100 = 480000
+    # start_time = data_conf['t0_time']
 
-    dur_per_frame = data_size/sample_rate_over_100/2.0
+    global plan
 
-    global plan, ngrp, nn
-    global fft_id_to_file
-    global fft_data_to_file
-    global fft_block_time_to_file
+    data_in = cp.asarray(scale_f *data).astype(cp.float32).reshape(-1, avg_n,
+                                                                   fft_npoint)
+    if plan is None:
+        plan = cufft.get_fft_plan(data_in, axes=2, value_type='R2C')
 
-    if output_fft:
-        data_in = cp.asarray(scale_f *data).astype(cp.float32).reshape(-1, avg_n, fft_npoint)
-        if plan is None:
-            plan = cufft.get_fft_plan(data_in, axes=2, value_type='R2C')
+    fft_out = cufft.rfft(data_in, axis=2, plan=plan)
 
-        fft_out = cufft.rfft(data_in, axis=2, plan=plan)
+    if quantity == 'amplitude':
         mean_out = cp.mean(cp.abs(fft_out), axis=1)
+    elif quantity == 'power':
+        mean_out = cp.mean(cp.abs(fft_out)**2, axis=1)
+    else:
+        print("wrong")
 
-        if quantity == 'amplitude':
-            mean_out = cp.mean(cp.abs(fft_out), axis=1)
-        elif quantity =='power':
-            mean_out = cp.mean(cp.abs(fft_out)**2, axis=1)
-        else:
-            print("wrong")
-
-    dt_frame_start = datetime.timedelta(milliseconds=(id_data[0] -
-        start_id)*dur_per_frame)
-
-    t_frame_start = start_time + dt_frame_start
-
-    dur_of_block = datetime.timedelta(milliseconds=(id_data[-1] -
-        id_data[0])*dur_per_frame)
-
-    for kk in range(int(ngrp)):
-        fft_block_time_to_file[kk] = (t_frame_start +
-                (kk + 0.5)*dur_of_block).isoformat()
-
-    i1 = nn*ngrp
-    i2 = i1 + ngrp
-    fft_data_to_file[nn*ngrp:nn*ngrp+ngrp,...] = mean_out
-
-    fft_id_to_file[nn,...] = id_data
-    nn += 1
-
-    if nn == n_blocks_to_save:
-        nn = 0
-        print("start to save")
-        f=h5.File(file_name +'.h5','w')
+    # f=h5.File(file_name +'.h5','w', driver='core')
 
     # f=h5.File(file_name +'.h5','w', driver="core")
     # dset = f.create_dataset(quantity, data=data)
     # dset = f.create_dataset(quantity, data=mean_out.get())
 
-        if output_fft:
-            dset = f.create_dataset(quantity, data=mean_out.get())
-        else:
-            dset = f.create_dataset(quantity, data=data)
+    out = mean_out.get()
+    file_q.put((out, id_data, block_time))
+    # dset = f.create_dataset(quantity, data=cp.asnumpy(mean_out))
+    # dset = f.create_dataset('block_time', data=block_time)
+    # dset = f.create_dataset('block_ids', data=id_data)
 
-        dset = f.create_dataset('block_time', data=block_time)
-        dset = f.create_dataset('block_ids', data=id_data)
+    # f.close()
+
+    # file_q.put((file_name +'.h5', fout_dst +'.h5'))
+
+    return
 
 
-        f.close()
+def dumpdata_hdf5_fft_q2(file_name, data, id_data, block_time, fout_dst, file_q):
 
-        file_q.put((file_name +'.h5', fout_dst +'.h5'))
+    # print("save raw pid: ", os.getpid())
+
+    avg_n = data_conf['avg_n']
+    fft_npoint = data_conf['fft_npoint']
+    scale_f = data_conf['voltage_scale_f']
+    quantity = data_conf['quantity']
+    # start_time = data_conf['t0_time']
+
+    global plan
+
+    data_in = cp.asarray(scale_f *data).astype(cp.float32).reshape(-1, avg_n,
+                                                                   fft_npoint)
+    if plan is None:
+        plan = cufft.get_fft_plan(data_in, axes=2, value_type='R2C')
+
+    fft_out = cufft.rfft(data_in, axis=2, plan=plan)
+
+    if quantity == 'amplitude':
+        mean_out = cp.mean(cp.abs(fft_out), axis=1)
+    elif quantity == 'power':
+        mean_out = cp.mean(cp.abs(fft_out)**2, axis=1)
+    else:
+        print("wrong")
+
+    f=h5.File(file_name +'.h5','w')
+
+    # f=h5.File(file_name +'.h5','w', driver="core")
+    # dset = f.create_dataset(quantity, data=data)
+    dset = f.create_dataset(quantity, data=mean_out.get())
+
+    # dset = f.create_dataset(quantity, data=cp.asnumpy(mean_out))
+    dset = f.create_dataset('block_time', data=block_time)
+    dset = f.create_dataset('block_ids', data=id_data)
+
+    f.close()
+
+    file_q.put((file_name +'.h5', fout_dst +'.h5'))
 
     return
 
