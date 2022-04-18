@@ -455,13 +455,14 @@ def dumpdata_hdf5_fft_q2(file_name, data, id_data, block_time, fout_dst, file_q)
     else:
         print("wrong")
 
+    # out = mean_out.get()
     f=h5.File(file_name +'.h5','w')
 
     # f=h5.File(file_name +'.h5','w', driver="core")
     # dset = f.create_dataset(quantity, data=data)
     dset = f.create_dataset(quantity, data=mean_out.get())
 
-    # dset = f.create_dataset(quantity, data=cp.asnumpy(mean_out))
+    # # dset = f.create_dataset(quantity, data=cp.asnumpy(mean_out))
     dset = f.create_dataset('block_time', data=block_time)
     dset = f.create_dataset('block_ids', data=id_data)
 

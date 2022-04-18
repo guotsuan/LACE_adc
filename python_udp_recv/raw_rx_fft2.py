@@ -10,6 +10,8 @@
 DAC RAW data sampling output after ffting
 Method: save single frame data
 
+n_frames_per_loop = 8192 is tested
+
 """
 
 import socket
@@ -326,8 +328,8 @@ if __name__ == '__main__':
                     '_' + str(k))
 
             block_time_str = epoctime2date(block_time)
-            # wfile = executor.submit(dumpdata_hdf5_fft_q2, mem_fout, udp_payload_arr,
-                    # id_arr, block_time_str, fout, file_q)
+            wfile = executor.submit(dumpdata_hdf5_fft_q2, mem_fout, udp_payload_arr,
+                    id_arr, block_time_str, fout, file_q)
 
             # dumpdata_hdf5_fft_q(udp_payload_arr,
                     # id_arr, block_time_str, file_q)
@@ -359,7 +361,7 @@ if __name__ == '__main__':
             v.value = 1
 
 
-    file_move.join(wait=1)
+    file_move.join()
     executor.shutdown(wait=False)
     sock.close()
 
