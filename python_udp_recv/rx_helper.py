@@ -47,7 +47,7 @@ def display_metrics(time_before,time_now, s_time, num_lost_all, dconf):
     # duration  = acq_data_size / size_of_data_per_sec * 1.0
     acq_time = time_now - time_before
 
-    os.system("clear")
+    # os.system("clear")
     print(f"frame loop time: {time_now - time_before:.3f},", \
             " lost_packet:", num_lost_all, \
             f"already run: {time_now - s_time:.3f}")
@@ -265,7 +265,7 @@ def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
 def save_raw_hdf5(data_dir, raw_data_to_file, raw_block_time_file,
         raw_id_to_file, nn, rx):
 
-    print("save raw pid: ", os.getpid())
+    # print("save raw pid: ", os.getpid())
     file_path_old = ''
 
     n_frames_per_loop = data_conf['n_frames_per_loop']
@@ -386,7 +386,7 @@ def dumpdata_hdf5(file_name, data, id_data, block_time):
 
 def dumpdata_hdf5_fft_q3(data, id_data, block_time, file_q):
 
-    # print("save raw pid: ", os.getpid())
+    # print("dumpdata_hdf5_fft_q3 pid: ", os.getpid())
 
     avg_n = data_conf['avg_n']
     fft_npoint = data_conf['fft_npoint']
@@ -417,7 +417,7 @@ def dumpdata_hdf5_fft_q3(data, id_data, block_time, file_q):
     # dset = f.create_dataset(quantity, data=mean_out.get())
 
     out = mean_out.get()
-    file_q.put((out, id_data, block_time))
+    file_q.send((out, id_data, block_time))
     # dset = f.create_dataset(quantity, data=cp.asnumpy(mean_out))
     # dset = f.create_dataset('block_time', data=block_time)
     # dset = f.create_dataset('block_ids', data=id_data)
@@ -709,7 +709,7 @@ def get_sample_data(sock,raw_data_q, dconf, v):                 #{{{ payload_siz
 
             count_down -= 1
 
-        raw_data_q.send((udp_data,udp_id))
+        raw_data_q.put((udp_data,udp_id))
 
         # if v.value == 1:
             # loop = False

@@ -12,6 +12,8 @@ Method: save single frame data
 
 n_frames_per_loop = 8192 is tested
 
+Switch to max_workers to 1, and it seems working
+
 """
 
 import socket
@@ -37,13 +39,6 @@ from rx_helper import *
 
 data_dir = ''
 good = 0
-
-if 'fft' in sys.argv[0]:
-    data_conf['output_fft'] = True
-    print("output FFT is True")
-else:
-    data_conf['output_fft'] = False
-    print("output FFT is False")
 
 args_len = len(sys.argv)
 if args_len < 3:
@@ -231,8 +226,8 @@ if __name__ == '__main__':
     shutil.copy('./params.py', data_dir)
     file_path_old = data_file_prefix(data_dir, t0_time)
 
-    executor = futures.ThreadPoolExecutor(max_workers=4)
-    executor2 = futures.ThreadPoolExecutor(max_workers=4)
+    executor = futures.ThreadPoolExecutor(max_workers=1)
+    executor2 = futures.ThreadPoolExecutor(max_workers=1)
 
     mem_dir = '/dev/shm/recv/'
     if not os.path.exists(mem_dir):
