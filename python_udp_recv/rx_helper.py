@@ -57,7 +57,7 @@ def display_metrics(time_before,time_now, s_time, num_lost_all, dconf):
 
     logging.info(f"frame loop time: {time_now - time_before:.3f}," + \
             " lost_packet:" + str(num_lost_all) + \
-            f"already run: {time_now - s_time:.3f}")
+            f" already run: {time_now - s_time:.3f}")
     logging.info("The speed of acquaring data: " + \
                  f'{acq_data_size/1024/1024/acq_time:.3f} MB/s')
 
@@ -384,6 +384,29 @@ def dumpdata_hdf5(file_name, data, id_data, block_time):
 
     return
 
+def save_hdf5_fft_data3(file_name, data, id_data, block_time):
+
+    # print("dumpdata_hdf5_fft_q3 pid: ", os.getpid())
+
+    avg_n = data_conf['avg_n']
+    fft_npoint = data_conf['fft_npoint']
+    scale_f = data_conf['voltage_scale_f']
+    quantity = data_conf['quantity']
+    # start_time = data_conf['t0_time']
+
+    f=h5.File(file_name +'.h5','w')
+
+    # f=h5.File(file_name +'.h5','w', driver="core")
+    dset = f.create_dataset(quantity, data=data)
+    dset = f.create_dataset('block_time', data=block_time)
+    dset = f.create_dataset('block_ids', data=id_data)
+
+    f.close()
+
+
+    return
+
+
 def dumpdata_hdf5_fft_q3(data, id_data, block_time, file_q):
 
     # print("dumpdata_hdf5_fft_q3 pid: ", os.getpid())
@@ -416,8 +439,7 @@ def dumpdata_hdf5_fft_q3(data, id_data, block_time, file_q):
     # dset = f.create_dataset(quantity, data=data)
     # dset = f.create_dataset(quantity, data=mean_out.get())
 
-    out = mean_out.get()
-    file_q.send((out, id_data, block_time))
+    file_q.send((mean_out.get(), id_data, block_time))
     # dset = f.create_dataset(quantity, data=cp.asnumpy(mean_out))
     # dset = f.create_dataset('block_time', data=block_time)
     # dset = f.create_dataset('block_ids', data=id_data)

@@ -8,11 +8,8 @@
 
 """
 DAC RAW data sampling output after ffting
-Method: save single frame data
-
-n_frames_per_loop = 8192 is tested
-
-Switch to max_workers to 1, and it seems working
+Method: group multiple frame data and save once
+change max_workers = 1 is working
 
 """
 
@@ -39,6 +36,7 @@ from rx_helper import *
 
 data_dir = ''
 good = 0
+
 
 args_len = len(sys.argv)
 if args_len < 3:
@@ -142,26 +140,134 @@ data_buff = memoryview(udp_data)
 id_buff = memoryview(udp_id)
 
 v= RawValue('i', 0)
-file_q = Queue()
-# file_q, tx = Pipe()
+# tot_file_cnt=RawValue('i', 0)
+# file_q = Queue()
+file_q, tx = Pipe()
+
 v.value = 0
 nn = 0
 
 ngrp = int(n_frames_per_loop*data_size/avg_n/2/fft_length)
+print("ngrp: ", ngrp)
 
 fft_block_time_to_file = np.zeros((n_blocks_to_save,), dtype='S30')
 fft_data_to_file = np.zeros((n_blocks_to_save, fft_length//2+1))
 fft_id_to_file = np.zeros((n_blocks_to_save, n_frames_per_loop), dtype=np.uint32)
 
-def move_file(file_q, v):
-    loop = True
-    while loop:
-        file_to_move, file_dest = file_q.get()
-        if os.path.exists(file_to_move):
-            shutil.move(file_to_move, file_dest)
-        if v.value == 1:
-            loop = False
+# def move_file(file_q, v):
+    # loop = True
+    # while loop:
+        # fft_data, id_data,block_time = file_q.get()
+        # print("dog")
 
+
+def save_fft_data(fft_out_q, dconf, v):  #{{{
+    # We need to save:
+    # 1. fft_data(n_blockas_to_save, fft_npoint//2+1)
+    # 2. averaged epochtime,  (t0_time + t1_time)
+    # 3. the first ID of raw data frame and the last ID of raw data frame
+
+    n_blocks_to_save = dconf['n_blocks_to_save']
+    n_frames_per_loop = dconf['n_frames_per_loop']
+    quantity = dconf['quantity']
+    file_stop_num = dconf['file_stop_num']
+    fft_npoint = dconf['fft_npoint']
+    avg_n = dconf['avg_n']
+    file_prefix = labels[dconf['output_sel']]
+
+
+    print("process id: ", os.getpid())
+    nn = 0
+    file_cnt = 0
+    file_path_old = ''
+
+    tot_file_cnt = 0
+    loop_forever = True
+
+    fft_data_to_file = np.zeros((n_blocks_to_save, fft_npoint//2+1))
+    fft_id_to_file = np.zeros((n_blocks_to_save,n_frames_per_loop), dtype=np.uint32)
+    fft_block_time_to_file = np.zeros((n_blocks_to_save,), dtype='S30')
+    dur_per_frame = data_size/sample_rate_over_100/2.0
+    start_time = datetime.datetime.utcfromtimestamp(dconf['t0_time'])
+
+    fout = ''
+
+    while loop_forever:
+        fft_data, id_arr, block_time = fft_out_q.recv()
+
+        if nn == 0:
+
+            if loop_file:
+                k = file_cnt % 20
+            else:
+                k = file_cnt
+
+            file_block_time = block_time
+            file_path = data_file_prefix(data_dir, file_block_time)
+            if file_path_old =='':
+                file_path_old = file_path
+            fout = os.path.join(file_path, file_prefix +
+                    '_fft_' + str(k))
+
+
+        # dt_frame_start = datetime.timedelta(milliseconds=(id_arr[0] -
+            # start_id)*dur_per_frame)
+
+        # t_frame_start = start_time + dt_frame_start
+
+        # # need to fixed, wiil overflow
+        # dur_of_block = datetime.timedelta(milliseconds=(id_arr[-1] -
+            # id_arr[0])*dur_per_frame)
+
+        # for kk in range(int(ngrp)):
+            # fft_block_time_to_file[kk] = (t_frame_start +
+                    # (kk+0.5)*dur_of_block).isoformat()
+
+        i1 = nn*ngrp
+        i2 = i1+ngrp
+        fft_data_to_file[i1:i2,...] =fft_data
+        fft_block_time_to_file[i1:i2] = epoctime2date(block_time)
+
+        nn +=1
+
+        if i2 == n_blocks_to_save:
+            nn = 0
+
+
+            # wfile = executor_save.submit(save_hdf5_fft_data3, fout, fft_data_to_file,
+                    # fft_id_to_file, fft_block_time_to_file)
+            # wstart = True
+
+            # f=h5.File(fout +'.h5', 'w')
+
+            # dset = f.create_dataset(quantity, data=fft_data_to_file)
+            # dset.attrs['avg_n'] = avg_n
+            # dset.attrs['fft_length'] =  fft_npoint
+
+            # dset = f.create_dataset('block_time', data=fft_block_time_to_file)
+            # dset = f.create_dataset('block_ids', data=fft_id_to_file)
+
+            # f.close()
+
+            if file_path == file_path_old:
+                file_cnt += 1
+            else:
+                file_cnt = 0
+
+            file_path_old = file_path
+            tot_file_cnt += 1
+            if tot_file_cnt % 100 == 0:
+                logging.info("tot_file_cnt: %i", tot_file_cnt)
+
+
+        if file_stop_num < 0 or tot_file_cnt <= file_stop_num:
+            loop_forever = True
+        else:
+            loop_forever = False
+            v.value = 1
+            logging.warning("save fft loop ended")
+
+   #}}}
 
 
 
@@ -169,7 +275,7 @@ if __name__ == '__main__':
     # Warm up the system....
     # Drop the some data packets to avoid unstable
 
-    print("Starting....")
+    print("Starting....pid", os.getpid())
     payload_buff_head = payload_buff
 
     pstart = False
@@ -206,7 +312,6 @@ if __name__ == '__main__':
             tmp_id % block_size)
     i = 0
     file_cnt = 0
-    tot_file_cnt = 0
     loop_cnt = 0
     fft_block_cnt = 0
 
@@ -233,7 +338,7 @@ if __name__ == '__main__':
     if not os.path.exists(mem_dir):
         os.makedirs(mem_dir )
 
-    file_move=Process(target=move_file, args=(file_q,  v),
+    file_move=Process(target=save_fft_data, args=(file_q, data_conf, v),
                       daemon=True)
     file_move.start()
 
@@ -308,33 +413,18 @@ if __name__ == '__main__':
         #                            saving data                              #
         #######################################################################
 
-        if loop_file:
-            k = file_cnt % 20
-        else:
-            k = file_cnt
-
 
         if no_lost:
-            file_path = data_file_prefix(data_dir, block_time)
-            fout = os.path.join(file_path, labels[output_sel] +
-                    '_' + str(k))
 
-            mem_fout = os.path.join(mem_dir, file_prefix +
-                    '_' + str(k))
-
-            block_time_str = epoctime2date(block_time)
-            wfile = executor.submit(dumpdata_hdf5_fft_q2, mem_fout, udp_payload_arr,
-                    id_arr, block_time_str, fout, file_q)
-
-            # dumpdata_hdf5_fft_q(udp_payload_arr,
-                    # id_arr, block_time_str, file_q)
-            if file_path == file_path_old:
-                file_cnt += 1
-            else:
-                file_cnt = 0
-
-            tot_file_cnt += 1
-            file_path_old = file_path
+            # dumpdata_hdf5_fft_q3(udp_payload_arr, id_arr, block_time, file_q)
+            executor.submit(dumpdata_hdf5_fft_q3,udp_payload_arr, id_arr,
+                            block_time, tx)
+            # t=threading.Thread(target=dumpdata_hdf5_fft_q3, args=(udp_payload_arr,
+                                                            # id_arr,
+                                                            # block_time,
+                                                            # file_q))
+            # t.start()
+            # t.join()
 
 
         #######################################################################
@@ -344,19 +434,24 @@ if __name__ == '__main__':
 
         if time_now - time_last > 10.0:
 
+            # print("v.value", v.value)
             time_last = time.perf_counter()
             display_metrics(time_before, time_now, s_time, num_lost_all,
                     data_conf)
 
         time_before = time_now
 
-
-        if (file_stop_num > 0) and (tot_file_cnt > file_stop_num) :
+        if v.value == 1:
             forever = False
-            v.value = 1
 
+    # file_move.join()
+    # tx.close()
 
     file_move.join()
-    executor.shutdown(wait=False)
+    file_q.close()
+    tx.close()
+    executor.shutdown(wait=False, cancel_futures=True)
+    print("Process save fft ended")
+    logging.warning("Process save fft ended")
     sock.close()
 
