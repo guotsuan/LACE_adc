@@ -9,7 +9,8 @@
 """
 DAC RAW data sampling output after ffting
 Method: group multiple frame data and save once
-change max_workers = 1 is working
+change max_workers = 1 is working, will lose 2 times with file_num = 20000
+The Queue is problem, not the saving file
 
 """
 
