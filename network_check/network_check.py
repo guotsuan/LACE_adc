@@ -135,5 +135,5 @@ if __name__ == "__main__":
 
 else:
 
-    from network_check.mac_add_update import update_mac_add, update_dst_ip, restart_recv
+    from network_check.mac_add_update import update_mac_addr, update_dst_ip, restart_recv
 

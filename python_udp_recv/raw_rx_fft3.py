@@ -26,6 +26,7 @@ from multiprocessing import RawValue, Process, SimpleQueue, Queue, Pipe
 
 import h5py as h5
 import numpy as np
+import cupy as cp
 #import termios, fcntl
 
 import cupy as cp
@@ -37,6 +38,10 @@ from rx_helper import *
 
 data_dir = ''
 good = 0
+
+affinity_mask = {2, 4,5}
+pid = 0
+os.sched_setaffinity(0, affinity_mask)
 
 
 args_len = len(sys.argv)
@@ -121,6 +126,8 @@ dur_per_frame = data_size/sample_rate_over_100/2.0
 
 sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
+err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+# sock.setblocking(False)
 
 
 
@@ -142,8 +149,8 @@ id_buff = memoryview(udp_id)
 
 v= RawValue('i', 0)
 # tot_file_cnt=RawValue('i', 0)
-# file_q = Queue()
-file_q, tx = Pipe()
+file_q = Queue()
+# file_q, tx = Pipe()
 
 v.value = 0
 nn = 0
@@ -151,9 +158,9 @@ nn = 0
 ngrp = int(n_frames_per_loop*data_size/avg_n/2/fft_length)
 print("ngrp: ", ngrp)
 
-fft_block_time_to_file = np.zeros((n_blocks_to_save,), dtype='S30')
-fft_data_to_file = np.zeros((n_blocks_to_save, fft_length//2+1))
-fft_id_to_file = np.zeros((n_blocks_to_save, n_frames_per_loop), dtype=np.uint32)
+# fft_block_time_to_file = np.zeros((n_blocks_to_save,), dtype='S30')
+# fft_data_to_file = np.zeros((n_blocks_to_save, fft_length//2+1))
+# fft_id_to_file = np.zeros((n_blocks_to_save, n_frames_per_loop), dtype=np.uint32)
 
 # def move_file(file_q, v):
     # loop = True
@@ -176,6 +183,8 @@ def save_fft_data(fft_out_q, dconf, v):  #{{{
     avg_n = dconf['avg_n']
     file_prefix = labels[dconf['output_sel']]
 
+    pid = 0
+    os.sched_setaffinity(0, {8})
 
     print("process id: ", os.getpid())
     nn = 0
@@ -194,7 +203,7 @@ def save_fft_data(fft_out_q, dconf, v):  #{{{
     fout = ''
 
     while loop_forever:
-        fft_data, id_arr, block_time = fft_out_q.recv()
+        fft_data, id_arr, block_time = fft_out_q.get()
 
         if nn == 0:
 
@@ -235,8 +244,8 @@ def save_fft_data(fft_out_q, dconf, v):  #{{{
             nn = 0
 
 
-            # wfile = executor_save.submit(save_hdf5_fft_data3, fout, fft_data_to_file,
-                    # fft_id_to_file, fft_block_time_to_file)
+            wfile = executor_save.submit(save_hdf5_fft_data3, fout, fft_data_to_file,
+                    fft_id_to_file, fft_block_time_to_file)
             # wstart = True
 
             # f=h5.File(fout +'.h5', 'w')
@@ -257,8 +266,8 @@ def save_fft_data(fft_out_q, dconf, v):  #{{{
 
             file_path_old = file_path
             tot_file_cnt += 1
-            if tot_file_cnt % 100 == 0:
-                logging.info("tot_file_cnt: %i", tot_file_cnt)
+            # if tot_file_cnt % 100 == 0:
+                # logging.info("tot_file_cnt: %i", tot_file_cnt)
 
 
         if file_stop_num < 0 or tot_file_cnt <= file_stop_num:
@@ -398,7 +407,8 @@ if __name__ == '__main__':
                 logging.warning(id_arr[bad-1:bad+2])
                 num_lost_all += 1
             else:
-                no_lost = True
+                executor.submit(dumpdata_hdf5_fft_q3,udp_payload_arr, id_arr,
+                                block_time, file_q)
         else:
             logging.warning("block is not connected, %i, %i", id_tail_before, id_arr[0])
             num_lost_all += 1
@@ -409,25 +419,6 @@ if __name__ == '__main__':
         id_tail_before = id_arr[-1]
 
 
-
-        #######################################################################
-        #                            saving data                              #
-        #######################################################################
-
-
-        if no_lost:
-
-            # dumpdata_hdf5_fft_q3(udp_payload_arr, id_arr, block_time, file_q)
-            executor.submit(dumpdata_hdf5_fft_q3,udp_payload_arr, id_arr,
-                            block_time, tx)
-            # t=threading.Thread(target=dumpdata_hdf5_fft_q3, args=(udp_payload_arr,
-                                                            # id_arr,
-                                                            # block_time,
-                                                            # file_q))
-            # t.start()
-            # t.join()
-
-
         #######################################################################
         #                           information out                           #
         #######################################################################
@@ -435,7 +426,6 @@ if __name__ == '__main__':
 
         if time_now - time_last > 10.0:
 
-            # print("v.value", v.value)
             time_last = time.perf_counter()
             display_metrics(time_before, time_now, s_time, num_lost_all,
                     data_conf)
@@ -444,9 +434,6 @@ if __name__ == '__main__':
 
         if v.value == 1:
             forever = False
-
-    # file_move.join()
-    # tx.close()
 
     file_move.join()
     file_q.close()

@@ -7,7 +7,7 @@
 # Distributed under terms of the MIT license.
 
 """
-Checking the whole system requirment 
+Checking the whole system requirment
 """
 
 import subprocess
@@ -33,7 +33,7 @@ check_gps()
 # netdev_max_backlog=65536
 
 kernels_params = ['rmem_max', 'wmem_max', 'netdev_max_backlog']
-kernels_presults = ['1610612736', '1610612736', '65536']
+kernels_presults = ['1610612736', '1610612736', '300000']
 kp_set = True
 
 for kp, v in zip(kernels_params, kernels_presults):

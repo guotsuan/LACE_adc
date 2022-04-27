@@ -23,7 +23,7 @@ from multiprocessing import shared_memory
 
 import cupyx.scipy.fft as cufft
 
-from params import split_by_min, data_conf,fft_method,labels
+from params import split_by_min, data_conf,fft_method,labels, loop_file
 
 plan = None
 
@@ -55,11 +55,11 @@ def display_metrics(time_before,time_now, s_time, num_lost_all, dconf):
     print("The speed of acquaring data: " +
             f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
 
-    logging.info(f"frame loop time: {time_now - time_before:.3f}," + \
-            " lost_packet:" + str(num_lost_all) + \
-            f" already run: {time_now - s_time:.3f}")
-    logging.info("The speed of acquaring data: " + \
-                 f'{acq_data_size/1024/1024/acq_time:.3f} MB/s')
+    # logging.info(f"frame loop time: {time_now - time_before:.3f}," + \
+            # " lost_packet:" + str(num_lost_all) + \
+            # f" already run: {time_now - s_time:.3f}")
+    # logging.info("The speed of acquaring data: " + \
+                 # f'{acq_data_size/1024/1024/acq_time:.3f} MB/s')
 
 def prepare_folder(indir):
     isdir = os.path.isdir(indir)
@@ -439,7 +439,7 @@ def dumpdata_hdf5_fft_q3(data, id_data, block_time, file_q):
     # dset = f.create_dataset(quantity, data=data)
     # dset = f.create_dataset(quantity, data=mean_out.get())
 
-    file_q.send((mean_out.get(), id_data, block_time))
+    file_q.put((mean_out.get(), id_data, block_time))
     # dset = f.create_dataset(quantity, data=cp.asnumpy(mean_out))
     # dset = f.create_dataset('block_time', data=block_time)
     # dset = f.create_dataset('block_ids', data=id_data)
@@ -449,6 +449,7 @@ def dumpdata_hdf5_fft_q3(data, id_data, block_time, file_q):
     # file_q.put((file_name +'.h5', fout_dst +'.h5'))
 
     return
+
 
 
 def dumpdata_hdf5_fft_q2(file_name, data, id_data, block_time, fout_dst, file_q):

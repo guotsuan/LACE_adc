@@ -226,8 +226,7 @@ if __name__ == '__main__':
     shutil.copy('./params.py', data_dir)
     file_path_old = data_file_prefix(data_dir, t0_time)
 
-    executor = futures.ThreadPoolExecutor(max_workers=1)
-    executor_save = futures.ThreadPoolExecutor(max_workers=1)
+    executor = futures.ThreadPoolExecutor(max_workers=2)
 
     mem_dir = '/dev/shm/recv/'
     if not os.path.exists(mem_dir):
@@ -336,6 +335,8 @@ if __name__ == '__main__':
             tot_file_cnt += 1
             file_path_old = file_path
 
+        # if tot_file_cnt % 100 == 0:
+            # logging.info("tot_file_cnt: %i", tot_file_cnt)
 
         #######################################################################
         #                           information out                           #
@@ -356,7 +357,9 @@ if __name__ == '__main__':
             v.value = 1
 
 
-    file_move.join()
-    executor.shutdown(wait=False)
+    file_move.terminate()
+    logging.warning("ready to stop")
+    executor.shutdown(wait=False, cancel_futures=True)
+    file_q.cancel_join_thread()
     sock.close()
 
