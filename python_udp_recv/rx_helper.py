@@ -36,7 +36,8 @@ def save_meta_file(fname, stime, s_id):
     ff.create_dataset('id_start', data=s_id)
     ff.close()
 
-def display_metrics(time_before,time_now, s_time, num_lost_all, dconf):
+def display_metrics(time_before,time_now, s_time, num_lost_all, dconf,
+                    tot_file_cnt=None):
 
     sample_rate = dconf['sample_rate']
     n_frames_per_loop = dconf['n_frames_per_loop']
@@ -52,8 +53,14 @@ def display_metrics(time_before,time_now, s_time, num_lost_all, dconf):
             " lost_packet:", num_lost_all, \
             f"already run: {time_now - s_time:.3f}")
 
-    print("The speed of acquaring data: " +
-            f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
+    if tot_file_cnt is not None:
+        print("The speed of acquaring data: " +
+              f'{acq_data_size/1024/1024/acq_time:.3f} MB/s ' +
+              "tot_file_num: " + f'{tot_file_cnt:d}\n')
+    else:
+        print("The speed of acquaring data: " +
+                f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
+
 
     # logging.info(f"frame loop time: {time_now - time_before:.3f}," + \
             # " lost_packet:" + str(num_lost_all) + \
@@ -439,7 +446,7 @@ def dumpdata_hdf5_fft_q3(data, id_data, block_time, file_q):
     # dset = f.create_dataset(quantity, data=data)
     # dset = f.create_dataset(quantity, data=mean_out.get())
 
-    file_q.put((mean_out.get(), id_data, block_time))
+    file_q.send((mean_out.get(), id_data, block_time))
     # dset = f.create_dataset(quantity, data=cp.asnumpy(mean_out))
     # dset = f.create_dataset('block_time', data=block_time)
     # dset = f.create_dataset('block_ids', data=id_data)

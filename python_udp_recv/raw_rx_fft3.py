@@ -19,7 +19,6 @@ import sys
 import os
 import time
 import datetime
-import threading
 import shutil
 from concurrent import futures
 from multiprocessing import RawValue, Process, SimpleQueue, Queue, Pipe
@@ -39,10 +38,11 @@ from rx_helper import *
 data_dir = ''
 good = 0
 
-affinity_mask = {2, 4,5}
+affinity_mask = {4,5,6}
 pid = 0
 os.sched_setaffinity(0, affinity_mask)
 
+#os.setpriority(os.PRIO_PROCESS, 0, 0)
 
 args_len = len(sys.argv)
 if args_len < 3:
@@ -122,6 +122,7 @@ data_conf['data_size'] = data_size
 fft_length = data_conf['fft_npoint']
 avg_n = data_conf['avg_n']
 
+
 dur_per_frame = data_size/sample_rate_over_100/2.0
 
 sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -148,9 +149,8 @@ data_buff = memoryview(udp_data)
 id_buff = memoryview(udp_id)
 
 v= RawValue('i', 0)
-# tot_file_cnt=RawValue('i', 0)
-file_q = Queue()
-# file_q, tx = Pipe()
+tot_file_cnt=RawValue('i', 0)
+file_q, tx = Pipe()
 
 v.value = 0
 nn = 0
@@ -169,7 +169,7 @@ print("ngrp: ", ngrp)
         # print("dog")
 
 
-def save_fft_data(fft_out_q, dconf, v):  #{{{
+def save_fft_data(fft_out_q, dconf, v, tot):  #{{{
     # We need to save:
     # 1. fft_data(n_blockas_to_save, fft_npoint//2+1)
     # 2. averaged epochtime,  (t0_time + t1_time)
@@ -189,9 +189,9 @@ def save_fft_data(fft_out_q, dconf, v):  #{{{
     print("process id: ", os.getpid())
     nn = 0
     file_cnt = 0
+    tot_file_cnt = 0
     file_path_old = ''
 
-    tot_file_cnt = 0
     loop_forever = True
 
     fft_data_to_file = np.zeros((n_blocks_to_save, fft_npoint//2+1))
@@ -203,7 +203,7 @@ def save_fft_data(fft_out_q, dconf, v):  #{{{
     fout = ''
 
     while loop_forever:
-        fft_data, id_arr, block_time = fft_out_q.get()
+        fft_data, id_arr, block_time = fft_out_q.recv()
 
         if nn == 0:
 
@@ -243,7 +243,6 @@ def save_fft_data(fft_out_q, dconf, v):  #{{{
         if i2 == n_blocks_to_save:
             nn = 0
 
-
             wfile = executor_save.submit(save_hdf5_fft_data3, fout, fft_data_to_file,
                     fft_id_to_file, fft_block_time_to_file)
             # wstart = True
@@ -263,11 +262,12 @@ def save_fft_data(fft_out_q, dconf, v):  #{{{
                 file_cnt += 1
             else:
                 file_cnt = 0
+                logging.info("new file dir: " + fout)
+                logging.info("block time: " + epoctime2date(block_time))
 
             file_path_old = file_path
             tot_file_cnt += 1
-            # if tot_file_cnt % 100 == 0:
-                # logging.info("tot_file_cnt: %i", tot_file_cnt)
+            tot.value = tot_file_cnt
 
 
         if file_stop_num < 0 or tot_file_cnt <= file_stop_num:
@@ -348,7 +348,8 @@ if __name__ == '__main__':
     if not os.path.exists(mem_dir):
         os.makedirs(mem_dir )
 
-    file_move=Process(target=save_fft_data, args=(file_q, data_conf, v),
+    file_move=Process(target=save_fft_data, args=(file_q, data_conf, v,
+                                                  tot_file_cnt),
                       daemon=True)
     file_move.start()
 
@@ -408,7 +409,10 @@ if __name__ == '__main__':
                 num_lost_all += 1
             else:
                 executor.submit(dumpdata_hdf5_fft_q3,udp_payload_arr, id_arr,
-                                block_time, file_q)
+                                block_time, tx)
+
+                # dumpdata_hdf5_fft_q3(udp_payload_arr, id_arr,
+                                # block_time, tx)
         else:
             logging.warning("block is not connected, %i, %i", id_tail_before, id_arr[0])
             num_lost_all += 1
@@ -428,7 +432,7 @@ if __name__ == '__main__':
 
             time_last = time.perf_counter()
             display_metrics(time_before, time_now, s_time, num_lost_all,
-                    data_conf)
+                    data_conf, tot_file_cnt.value)
 
         time_before = time_now
 
