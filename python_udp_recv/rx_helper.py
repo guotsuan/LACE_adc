@@ -18,7 +18,9 @@ import termios, fcntl
 import cupy as cp
 import torch
 import mkl_fft
+import shutil
 import logging
+import subprocess
 from multiprocessing import shared_memory
 
 import cupyx.scipy.fft as cufft
@@ -73,17 +75,25 @@ def prepare_folder(indir):
     if isdir:
         files = os.listdir(indir)
         if len(files) != 0:
-            raise ValueError(indir + ' is not empty')
+            # raise ValueError(indir + ' is not empty')
+            print("clear diretory")
+            shutil.rmtree(indir)
+            os.mkdir(indir)
 
     else:
         os.mkdir(indir)
 
 
 def data_file_prefix(indir, stime, unpack=False):
-    if isinstance(stime, float):
-        dt = datetime.datetime.utcfromtimestamp(stime)
+
+    if type(stime) != datetime.datetime:
+        if isinstance(stime, float):
+            dt = datetime.datetime.utcfromtimestamp(stime)
+        else:
+            dt = datetime.datetime.fromisoformat(stime)
     else:
-        dt = datetime.datetime.fromisoformat(stime)
+        dt = stime
+
     folder_level1 = dt.strftime("%Y-%m-%d")
     folder_level2 = dt.strftime("%H")
     if split_by_min:
@@ -401,10 +411,16 @@ def save_hdf5_fft_data3(file_name, data, id_data, block_time):
     quantity = data_conf['quantity']
     # start_time = data_conf['t0_time']
 
+    # temp_result = subprocess.getoutput('ssh rec "python readtemp.py"')
+    # tmp_str=temp_result[1:-2].split(",")
+    # t_ps, t_pl = [float(b) for b in tmp_str]
+
     f=h5.File(file_name +'.h5','w')
 
     # f=h5.File(file_name +'.h5','w', driver="core")
     dset = f.create_dataset(quantity, data=data)
+    # dset.attrs['temp_ps'] = t_ps
+    # dset.attrs['temp_pl'] = t_pl
     dset = f.create_dataset('block_time', data=block_time)
     dset = f.create_dataset('block_ids', data=id_data)
 

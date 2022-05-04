@@ -16,6 +16,7 @@ if [[ $OSTYPE == 'linux'* ]]; then
 #  sudo sysctl -w net.core.wmem_max=1610612736
   sudo sysctl -w net.core.netdev_max_backlog=300000
   sudo sysctl -w net.core.optmem_max=1020000 
+  sudo sysctl -w net.ipv4.udp_mem="11416320 15221760 22832640"
 
   sudo netctl stop enp10s0f0
   #sudo netctl stop enp10s0f1
