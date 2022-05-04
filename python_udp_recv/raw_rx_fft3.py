@@ -36,9 +36,9 @@ from rx_helper import *
 data_dir = ''
 good = 0
 
-affinity_mask = {4,5,6}
-pid = 0
-os.sched_setaffinity(0, affinity_mask)
+# affinity_mask = {4,5,6}
+# pid = 0
+# os.sched_setaffinity(0, affinity_mask)
 # os.setpriority(os.PRIO_PROCESS, 0, 0)
 
 args_len = len(sys.argv)
@@ -219,7 +219,6 @@ def save_fft_data(fft_out_q, dconf, v, tot):  #{{{
 
 
             # block_start_t = start_time + block_id1_dt
-            print("t0_time", t0_time)
             block_start_t = t0_time + dur_per_frame*(block_id1-pstart_id)/1000.0
 
             file_path = data_file_prefix(data_dir, block_start_t)
