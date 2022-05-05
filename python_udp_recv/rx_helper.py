@@ -76,7 +76,7 @@ def prepare_folder(indir):
         files = os.listdir(indir)
         if len(files) != 0:
             # raise ValueError(indir + ' is not empty')
-            print("clear diretory")
+            print("clear diretory.....\n")
             shutil.rmtree(indir)
             os.mkdir(indir)
 

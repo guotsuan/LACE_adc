@@ -17,7 +17,7 @@ src_udp_ip = "192.168.90.20"
 src_udp_port = 59000
 
 udp_ip = "192.168.90.100"
-udp_port = 60000
+udp_port = 60001
 
 cycle = 49999
 
@@ -52,10 +52,10 @@ maxid = 0
 
 while True:
     sock.recv_into(load_buff, 8200)
-    # pid = np.frombuffer(udp_payload[8196:8200], '>u4')
+    pid = np.frombuffer(udp_payload[8196:8200], '>u4')
     # breakpoint()
 
-    #print(pid)
+    print(pid)
     # if pid > maxid:
         # maxid = pid
     # print(np.frombuffer(load_buff[8198:8220], '>u2'))
