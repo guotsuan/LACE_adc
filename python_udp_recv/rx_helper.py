@@ -29,6 +29,27 @@ from params import split_by_min, data_conf,fft_method,labels, loop_file
 
 plan = None
 
+
+def read_temp(sock):
+    msgFromClient       = "Hello Receiver Temp Server"
+    bytesToSend         = str.encode(msgFromClient)
+    serverAddressPort   = ("192.168.1.188", 20001)
+    bufferSize          = 1024
+
+    try:
+        sock.sendto(bytesToSend, serverAddressPort)
+        msgFromServer =sock.recvfrom(bufferSize)
+
+        temp_ps, temp_pl = np.frombuffer(msgFromServer[0], dtype='<f4')
+    except:
+        print("Reading temp error")
+        temp_ps = -1.0
+        temp_pl = -1.0
+        logging.warning("Reading temp error")
+
+    return temp_ps, temp_pl
+
+
 def save_meta_file(fname, stime, s_id):
     ff = h5.File(fname, 'w')
     str_stime = epoctime2date(stime)
