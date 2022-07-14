@@ -32,9 +32,18 @@ check_gps()
 # wmem_max = 1610612736
 # netdev_max_backlog=65536
 
-kernels_params = ['rmem_max', 'wmem_max', 'netdev_max_backlog']
-kernels_presults = ['1610612736', '1610612736', '300000']
 kp_set = True
+
+kernels_params = ['rmem_max', 'wmem_max', 'netdev_max_backlog',
+                  'optmem_max']
+kernels_presults = ['1610612736', '1610612736', '300000', '1020000']
+
+# special setting for net.ipv4.udp_mem
+
+udp_mem= '"11416320 15221760 22832640"'
+out = Popen("sudo sysctl -w net.ipv4.udp_mem"  + "=" + udp_mem, shell=True,
+                    stdout=subprocess.PIPE)
+print(out.stdout.read().strip().decode() + "   " + green_ok)
 
 for kp, v in zip(kernels_params, kernels_presults):
     out = Popen("sysctl net.core." + kp, shell=True, stdout=subprocess.PIPE)

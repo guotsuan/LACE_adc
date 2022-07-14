@@ -19,13 +19,13 @@ if [[ $OSTYPE == 'linux'* ]]; then
   sudo sysctl -w net.ipv4.udp_mem="11416320 15221760 22832640"
 
   sudo netctl stop enp10s0f0
-  #sudo netctl stop enp10s0f1
-  #sudo ip link set enp10s0f1 txqueuelen 10000
+  sudo netctl stop enp10s0f1
+  sudo ip link set enp10s0f1 txqueuelen 10000
   sudo ip link set enp10s0f0 txqueuelen 10000
   sudo ethtool -G enp10s0f0 rx 4096
-  #sudo ethtool -G enp10s0f1 rx 4096
+  sudo ethtool -G enp10s0f1 rx 4096
   sudo netctl start enp10s0f0
-  #sudo netctl start enp10s0f1
+  sudo netctl start enp10s0f1
 
 fi
 
