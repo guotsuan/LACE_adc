@@ -16,6 +16,8 @@ Switch to max_workers to 1, and it seems working
 
 data stored in cuda, transfer to host once.
 
+fft5 save data in memory then copy to disk
+
 There is no delay in block_time in saving
 
 """
@@ -247,7 +249,12 @@ def dumpdata_hdf5_fft_q5(data_dir, mem_dir, data, id_data, file_q):
             f=h5.File(fout +'.h5','w')
 
 
+            temp_ps, temp_pl = read_temp(sock_temp)
+
             dset = f.create_dataset(quantity, data=fft_data_to_file.get())
+            dset.attrs['temp_ps'] = temp_ps
+            dset.attrs['temp_pl'] = temp_pl
+
             # dset.attrs['temp_ps'] = t_ps
             # dset.attrs['temp_pl'] = t_pl
             dset = f.create_dataset('block_time', data=fft_block_time_to_file)

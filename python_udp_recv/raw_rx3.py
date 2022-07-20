@@ -29,6 +29,9 @@ import numpy as np
 from params import *
 from rx_helper import *
 
+affinity_mask = {10,11}
+os.sched_setaffinity(0, affinity_mask)
+
 data_dir = ''
 good = 0
 
@@ -114,6 +117,7 @@ err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
 
 
 
+
 if err:
     sock.close()
     raise ValueError("set socket error")
@@ -142,6 +146,25 @@ def move_file(file_q, v):
             shutil.move(file_to_move, file_dest)
         if v.value == 1:
             loop = False
+
+def dumpdata_hdf5_q3(file_name, data, id_data, block_time, fout_dst, file_q):
+
+    quantity = data_conf['quantity']
+
+    f=h5.File(file_name +'.h5','w')
+    dset = f.create_dataset(quantity, data=data)
+    temp_ps, temp_pl = read_temp(sock_temp)
+    dset.attrs['temp_ps'] = temp_ps
+    dset.attrs['temp_pl'] = temp_pl
+
+    dset = f.create_dataset('block_time', data=block_time)
+    dset = f.create_dataset('block_ids', data=id_data)
+
+    f.close()
+
+    file_q.put((file_name +'.h5', fout_dst +'.h5'))
+
+    return
 
 
 if __name__ == '__main__':
@@ -184,6 +207,12 @@ if __name__ == '__main__':
     logging.info("Warmup finished with last data seqNo: %i, %i ", id_tail_before,
             tmp_id % block_size)
 
+    try:
+        sock_temp = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+    except socket.error as msg:
+        logging.warning("socket of reading temp is failed to open")
+        logging.warning(msg)
+
     i = 0
     file_cnt = 0
     loop_cnt = 0
@@ -200,7 +229,7 @@ if __name__ == '__main__':
     shutil.copy('./params.py', data_dir)
     file_path_old = data_file_prefix(data_dir, t0_time)
 
-    executor = futures.ThreadPoolExecutor(max_workers=4)
+    executor = futures.ThreadPoolExecutor(max_workers=1)
 
     mem_dir = '/dev/shm/recv/'
     if not os.path.exists(mem_dir):
@@ -286,9 +315,6 @@ if __name__ == '__main__':
         else:
             k = file_cnt
 
-        # if pstart:
-            # writefile.result()
-            # pstart=False
 
         if no_lost:
             file_path = data_file_prefix(data_dir, block_time)
@@ -299,7 +325,7 @@ if __name__ == '__main__':
                     '_' + str(k))
 
             block_time_str = epoctime2date(block_time)
-            wfile = executor.submit(dumpdata_hdf5_q, mem_fout, udp_payload_arr,
+            wfile = executor.submit(dumpdata_hdf5_q3, mem_fout, udp_payload_arr,
                     id_arr, block_time_str, fout,
                                     file_q)
 

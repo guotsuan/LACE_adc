@@ -17,6 +17,8 @@ Switch to max_workers to 1, and it seems working
 group n_grp data in cuda and them transfer to host
 and save one file to the disk directly
 
+save to disk directly without saved in memory first
+
 """
 
 import socket
@@ -126,7 +128,7 @@ sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 
-affinity_mask = {0,1}
+affinity_mask = {10, 11}
 pid = 0
 os.sched_setaffinity(0, affinity_mask)
 
