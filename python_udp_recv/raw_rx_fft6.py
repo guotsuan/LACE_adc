@@ -128,7 +128,7 @@ sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 
-affinity_mask = {10, 11}
+affinity_mask = {0, 1}
 pid = 0
 os.sched_setaffinity(0, affinity_mask)
 
@@ -232,8 +232,8 @@ def dumpdata_hdf5_fft_q6(data_dir, data, id_data):
         if file_path == file_path_old:
             file_cnt += 1
         else:
-            logging.info("new file dir: " + fout)
-            logging.info("block time: " + epoctime2date(block_time))
+            logging.info("Congrate! Next hour, new sub-directory: " + file_path)
+            logging.info("The time is : " + epoctime2date(block_time))
             file_cnt = 0
 
         tot_file_cnt += 1
@@ -279,9 +279,9 @@ if __name__ == '__main__':
             tmp_id % block_size)
 
     logfile = os.path.join(data_dir, 'rx.log')
-    logging.basicConfig(filename=logfile, level=logging.DEBUG,
+    logging.basicConfig(filename=logfile, level=logging.INFO,
                         format='%(asctime)s %(levelname)s: %(message)s')
-    logging.info("Warmup finished with last data seqNo: %i, %i ", id_tail_before,
+    logging.info("Warmup finished with last data seqNo and the remainder of SeqNo/block_size: %i, %i ", id_tail_before,
             tmp_id % block_size)
 
     try:
@@ -316,101 +316,107 @@ if __name__ == '__main__':
     # if not os.path.exists(mem_dir):
         # os.makedirs(mem_dir )
 
-    while forever:
-        if file_stop_num < 0:
-            try:
-                c = sys.stdin.read(1)
-                if c =='x':
-                    print("program will stop on given order")
-                    forever = False
-            except IOError: pass
+    try:
+        while forever:
+            if file_stop_num < 0:
+                try:
+                    c = sys.stdin.read(1)
+                    if c =='x':
+                        print("program will stop on given order")
+                        forever = False
+                except IOError: pass
 
-        pi1 = 0
-        pi2 = data_size
+            pi1 = 0
+            pi2 = data_size
 
-        hi1 = 0
-        hi2 = id_size
+            hi1 = 0
+            hi2 = id_size
 
-        count_down = n_frames_per_loop
-        payload_buff = payload_buff_head
-        block_time1 = time.time()
-        no_lost = False
-
-        while count_down:
-            sock.recv_into(payload_buff, payload_size)
-            data_buff[pi1:pi2] = payload_buff[0:data_size]
-            id_buff[hi1:hi2] = payload_buff[payload_size - id_size:payload_size]
-
-            pi1 += data_size
-            pi2 += data_size
-            hi1 += id_size
-            hi2 += id_size
-
-            count_down -= 1
-
-        block_time2 = time.time()
-        id_arr = np.uint32(np.frombuffer(udp_id,dtype='>u4'))
-        diff = id_arr[0] - id_tail_before
-
-        if (diff == 1) or (diff == - cycle ):
-            udp_payload_arr = np.frombuffer(udp_data, dtype=data_type)
-            id_offsets = np.diff(id_arr) % cycle
-
-            idx = id_offsets > 1
-
-            num_lost_p = len(id_offsets[idx])
-            block_time = (block_time1 + block_time2)/2.
-            if (num_lost_p > 0):
-                if data_conf['save_lost']:
-                    no_lost = True
-                else:
-                    no_lost = False
-
-                bad=np.arange(id_offsets.size)[idx][0]
-                logging.warning("inside block is not continuis")
-                logging.warning(id_arr[bad-1:bad+2])
-                num_lost_all += 1
-            else:
-                wfile = executor.submit(dumpdata_hdf5_fft_q6,
-                                    data_dir, udp_payload_arr, id_arr)
-                # dumpdata_hdf5_fft_q6(data_dir, udp_payload_arr, id_arr)
-        else:
-            logging.warning("block is not connected, %i, %i", id_tail_before, id_arr[0])
-            num_lost_all += 1
+            count_down = n_frames_per_loop
+            payload_buff = payload_buff_head
+            block_time1 = time.time()
             no_lost = False
 
-        # update the ids before for next section
-        id_head_before = id_arr[0]
-        id_tail_before = id_arr[-1]
+            while count_down:
+                sock.recv_into(payload_buff, payload_size)
+                data_buff[pi1:pi2] = payload_buff[0:data_size]
+                id_buff[hi1:hi2] = payload_buff[payload_size - id_size:payload_size]
+
+                pi1 += data_size
+                pi2 += data_size
+                hi1 += id_size
+                hi2 += id_size
+
+                count_down -= 1
+
+            block_time2 = time.time()
+            id_arr = np.uint32(np.frombuffer(udp_id,dtype='>u4'))
+            diff = id_arr[0] - id_tail_before
+
+            if (diff == 1) or (diff == - cycle ):
+                udp_payload_arr = np.frombuffer(udp_data, dtype=data_type)
+                id_offsets = np.diff(id_arr) % cycle
+
+                idx = id_offsets > 1
+
+                num_lost_p = len(id_offsets[idx])
+                block_time = (block_time1 + block_time2)/2.
+                if (num_lost_p > 0):
+                    if data_conf['save_lost']:
+                        no_lost = True
+                    else:
+                        no_lost = False
+
+                    bad=np.arange(id_offsets.size)[idx][0]
+                    logging.warning("inside block is not continuis")
+                    logging.warning(id_arr[bad-1:bad+2])
+                    num_lost_all += 1
+                else:
+                    wfile = executor.submit(dumpdata_hdf5_fft_q6,
+                                        data_dir, udp_payload_arr, id_arr)
+                    # dumpdata_hdf5_fft_q6(data_dir, udp_payload_arr, id_arr)
+            else:
+                logging.warning("block is not connected, %i, %i", id_tail_before, id_arr[0])
+                num_lost_all += 1
+                no_lost = False
+
+            # update the ids before for next section
+            id_head_before = id_arr[0]
+            id_tail_before = id_arr[-1]
 
 
 
-        #######################################################################
-        #                            saving data                              #
-        #######################################################################
+            #######################################################################
+            #                            saving data                              #
+            #######################################################################
 
 
 
-        #######################################################################
-        #                           information out                           #
-        #######################################################################
-        time_now = time.perf_counter()
+            #######################################################################
+            #                           information out                           #
+            #######################################################################
+            time_now = time.perf_counter()
 
-        if time_now - time_last > 10.0:
+            if time_now - time_last > 10.0:
 
-            time_last = time.perf_counter()
-            display_metrics(time_before, time_now, s_time, num_lost_all,
-                    data_conf, tot_file_cnt=tot_file_cnt)
+                time_last = time.perf_counter()
+                display_metrics(time_before, time_now, s_time, num_lost_all,
+                        data_conf, tot_file_cnt=tot_file_cnt)
 
-        time_before = time_now
+            time_before = time_now
 
-        if (file_stop_num > 0) and (tot_file_cnt > file_stop_num) :
-            forever = False
-            v.value = 1
+            if (file_stop_num > 0) and (tot_file_cnt > file_stop_num) :
+                forever = False
+                v.value = 1
 
 
-    executor.shutdown(wait=False, cancel_futures=True)
-    print("Process save fft ended")
-    logging.warning("Process save fft ended")
-    sock.close()
+        executor.shutdown(wait=False, cancel_futures=True)
+        print("Process save fft ended")
+        logging.warning("Process save fft ended")
+        sock.close()
+
+    except KeyboardInterrupt:
+        # file_move.terminate()
+        executor.shutdown(wait=False, cancel_futures=True)
+        sock.close()
 

@@ -18,7 +18,7 @@ from subprocess import Popen
 
 from python_udp_recv.params import bcolors
 from gps_and_oscillator.check_status import check_gps
-from network_check.network_check import check_output
+from network_check.network_check import check_and_update
 
 green_ok = bcolors.OKGREEN + " .....OK." + bcolors.ENDC
 red_failed = bcolors.FAIL + " .....FAILED." + bcolors.ENDC
@@ -65,5 +65,5 @@ for kp, v in zip(kernels_params, kernels_presults):
 # Checking The Receiver output....
 subprocess.call(shlex.split('sudo id -nu'))
 print ("Checinkg output....\n")
-check_output()
+check_and_update()
 

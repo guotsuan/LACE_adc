@@ -6,6 +6,14 @@
 # Distributed under terms of the MIT license.
 #
 
+
+if [ $# -eq 0 ] 
+then 
+  echo "Usage $0 NIC1 NIC2 ...."
+else
+  NIC=$*
+fi
+
 if [[ $OSTYPE == 'darwin'* ]]; then
   # mac pro MAX, maxspace=7168000
   sudo sysctl -w net.inet.udp.recvspace=7168000
@@ -18,15 +26,14 @@ if [[ $OSTYPE == 'linux'* ]]; then
   sudo sysctl -w net.core.optmem_max=1020000 
   sudo sysctl -w net.ipv4.udp_mem="11416320 15221760 22832640"
 
-  sudo netctl stop ens1f0
-  sudo netctl stop ens1f1
-  sudo ip link set ens1f1 txqueuelen 10000
-  sudo ip link set ens1f0 txqueuelen 10000
-  sudo ethtool -G ens1f0 rx 4096
-  sudo ethtool -G ens1f1 rx 4096
-  sudo netctl start ens1f0
-  sudo netctl start ens1f1
-
+  for i in $NIC
+  do
+    echo "adjusting 10G NIC $i"
+    sudo netctl stop $i
+    sudo ip link set $i txqueuelen 10000
+    sudo ethtool -G $i rx 8184
+    sudo netctl start $i
+  done
 fi
 
 #sudo ethtool -G enp10s0f0 rx 4096

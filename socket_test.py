@@ -11,10 +11,10 @@
 """
 import socket
 
-src_udp_ip = "192.168.90.30"
-src_udp_port = 59000
+#src_udp_ip = "192.168.90.30"
+#src_udp_port = 59000
 
-udp_ip = "192.168.90.101"
+udp_ip = "192.168.90.100"
 udp_port = 60000
 
 cycle = 49999

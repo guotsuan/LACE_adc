@@ -149,6 +149,7 @@ def move_file(file_q, v):
 
 def dumpdata_hdf5_q3(file_name, data, id_data, block_time, fout_dst, file_q):
 
+    # voltage_scale_f = 0.5/2**15
     quantity = data_conf['quantity']
 
     f=h5.File(file_name +'.h5','w')
