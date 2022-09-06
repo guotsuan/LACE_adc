@@ -218,7 +218,7 @@ def dumpdata_hdf5_fft_q6(data_dir, data, id_data):
 
         f=h5.File(fout +'.h5','w')
 
-        dset = f.create_dataset(quantity, data=fft_data_to_file.get())
+        dset = f.create_dataset(quantity, data=fft_data_to_file.get().astype(np.float32))
         dset.attrs['temp_ps'] = temp_ps
         dset.attrs['temp_pl'] = temp_pl
 

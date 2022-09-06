@@ -205,79 +205,81 @@ def dumpdata_hdf5_fft_q5(data_dir, mem_dir, data, id_data, file_q):
 
     global plan
 
-    try:
-        data_in = cp.asarray(scale_f *data).astype(cp.float32).reshape(-1, avg_n,
-                                                                    fft_npoint)
-        if plan is None:
-            plan = cufft.get_fft_plan(data_in, axes=2, value_type='R2C')
+    # try:
+    data_in = cp.asarray(scale_f *data).astype(cp.float32).reshape(-1, avg_n,
+                                                                fft_npoint)
+    if plan is None:
+        plan = cufft.get_fft_plan(data_in, axes=2, value_type='R2C')
 
-        fft_out = cufft.rfft(data_in, axis=2, plan=plan)
+    fft_out = cufft.rfft(data_in, axis=2, plan=plan)
 
-        if quantity == 'amplitude':
-            mean_out = cp.mean(cp.abs(fft_out), axis=1)
-        elif quantity == 'power':
-            mean_out = cp.mean(cp.abs(fft_out)**2, axis=1)
+    if quantity == 'amplitude':
+        mean_out = cp.mean(cp.abs(fft_out), axis=1)
+    elif quantity == 'power':
+        mean_out = cp.mean(cp.abs(fft_out)**2, axis=1)
+    else:
+        print("wrong")
+
+    i1 = nn*ngrp
+    i2 = i1+ngrp
+    fft_data_to_file[i1:i2,...] = mean_out
+    fft_block_time_to_file[i1:i2] = epoctime2date(block_time)
+    nn += 1
+
+
+    if i2 == n_blocks_to_save:
+        nn = 0
+
+        if loop_file:
+            k = file_cnt % 20
         else:
-            print("wrong")
+            k = file_cnt
 
-        i1 = nn*ngrp
-        i2 = i1+ngrp
-        fft_data_to_file[i1:i2,...] = mean_out
-        fft_block_time_to_file[i1:i2] = epoctime2date(block_time)
-        nn += 1
+        # print("epoch: ", epoctime2date(block_time))
+        file_path = data_file_prefix(data_dir, block_time)
+        fout = os.path.join(file_path, labels[output_sel] +
+                '_' + str(k))
 
+        mem_fout = os.path.join(mem_dir, file_prefix +
+                '_' + str(k))
 
-        if i2 == n_blocks_to_save:
-            nn = 0
-
-            if loop_file:
-                k = file_cnt % 20
-            else:
-                k = file_cnt
-
-            # print("epoch: ", epoctime2date(block_time))
-            file_path = data_file_prefix(data_dir, block_time)
-            fout = os.path.join(file_path, labels[output_sel] +
-                    '_' + str(k))
-
-            mem_fout = os.path.join(mem_dir, file_prefix +
-                    '_' + str(k))
-
-            # temp_result = subprocess.getoutput('ssh rec "python readtemp.py"')
-            # tmp_str=temp_result[1:-2].split(",")
-            # t_ps, t_pl = [float(b) for b in tmp_str]
-            f=h5.File(fout +'.h5','w')
+        # temp_result = subprocess.getoutput('ssh rec "python readtemp.py"')
+        # tmp_str=temp_result[1:-2].split(",")
+        # t_ps, t_pl = [float(b) for b in tmp_str]
+        f=h5.File(fout +'.h5','w')
 
 
-            temp_ps, temp_pl = read_temp(sock_temp)
+        temp_ps, temp_pl = read_temp(sock_temp)
 
-            dset = f.create_dataset(quantity, data=fft_data_to_file.get())
-            dset.attrs['temp_ps'] = temp_ps
-            dset.attrs['temp_pl'] = temp_pl
+        dset = f.create_dataset(quantity,
+                                data=fft_data_to_file.get().astype(np.float32))
+        dset.attrs['temp_ps'] = temp_ps
+        dset.attrs['temp_pl'] = temp_pl
 
-            # dset.attrs['temp_ps'] = t_ps
-            # dset.attrs['temp_pl'] = t_pl
-            dset = f.create_dataset('block_time', data=fft_block_time_to_file)
-            dset = f.create_dataset('block_ids', data=fft_id_to_file)
+        # dset.attrs['temp_ps'] = t_ps
+        # dset.attrs['temp_pl'] = t_pl
+        dset = f.create_dataset('block_time', data=fft_block_time_to_file)
+        dset = f.create_dataset('block_ids', data=fft_id_to_file)
 
-        # # # dset = f.create_dataset(quantity, data=cp.asnumpy(mean_out))
+    # # # dset = f.create_dataset(quantity, data=cp.asnumpy(mean_out))
 
-            f.close()
+        f.close()
 
-            file_q.put((mem_fout +'.h5', fout +'.h5'))
+        file_q.put((mem_fout +'.h5', fout +'.h5'))
 
-            if file_path == file_path_old:
-                file_cnt += 1
-            else:
-                # logging.info("new file dir: " + fout)
-                # logging.info("block time: " + epoctime2date(block_time))
-                file_cnt = 0
 
-            tot_file_cnt += 1
-            file_path_old = file_path
-    except:
-        v.value = 1
-        raise ("dumpdata_hdf5_fft_q5 error")
+        if file_path == file_path_old:
+            file_cnt += 1
+        else:
+            # logging.info("new file dir: " + fout)
+            # logging.info("block time: " + epoctime2date(block_time))
+            file_cnt = 0
+
+        tot_file_cnt += 1
+        file_path_old = file_path
+    # except:
+        # v.value = 1
+        # raise ("dumpdata_hdf5_fft_q5 error")
 
 
     return
@@ -323,6 +325,13 @@ if __name__ == '__main__':
                         format='%(asctime)s %(levelname)s: %(message)s')
     logging.info("Warmup finished with last data seqNo: %i, %i ", id_tail_before,
             tmp_id % block_size)
+
+    try:
+        sock_temp = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+    except socket.error as msg:
+        logging.warning("socket of reading temp is failed to open")
+        logging.warning(msg)
+
     i = 0
     loop_cnt = 0
     fft_block_cnt = 0
@@ -414,7 +423,7 @@ if __name__ == '__main__':
                                         data_dir, mem_dir, udp_payload_arr, id_arr, file_q)
 
 
-                    # dumpdata_hdf5_fft_q4(data_dir, mem_dir, udp_payload_arr, id_arr, file_q)
+                    # dumpdata_hdf5_fft_q5(data_dir, mem_dir, udp_payload_arr, id_arr, file_q)
             else:
                 logging.warning("block is not connected, %i, %i", id_tail_before, id_arr[0])
                 num_lost_all += 1
