@@ -55,7 +55,7 @@ def check_output():
 
         print("Checking: ", bcolors.UNDERLINE + lb + bcolors.ENDC)
         if nic == '':
-            print("Ignore the " + lb  + bcolors.OKGREEN + " ok....." + bcolors.ENDC)
+            print("Ignore the " + lb  + bcolors.OKBLUE + " ......Ignored" + bcolors.ENDC)
             print("\n")
         else:
             if 'Darwin' in platform_system:
@@ -95,7 +95,7 @@ def check_output():
                     ok=False
 
                 if ok:
-                    print (lb + " seems " + bcolors.OKGREEN + "ok....." + bcolors.ENDC)
+                    print (lb + " seems " + bcolors.OKGREEN + ".......OK" + bcolors.ENDC)
                 else:
                     print (lb + bcolors.FAIL + " seems failed....." + bcolors.ENDC)
 
