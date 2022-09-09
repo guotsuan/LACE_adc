@@ -10,6 +10,7 @@
 Checking the status of the outputing network of the receiver
 """
 
+from warnings import filterwarnings
 from scapy.all import sniff
 import sys
 sys.path.append('../')
@@ -23,6 +24,7 @@ import numpy as np
 #  General parameters  #
 ########################
 
+filterwarnings("ignore")
 timeout = 1
 
 ###################

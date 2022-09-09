@@ -7,7 +7,7 @@
 # Distributed under terms of the MIT license.
 
 """
-Checking the status of GPS and oscillator 
+Checking the status of GPS and oscillator
 """
 
 import socket
@@ -60,7 +60,7 @@ def check_gps():
 
     delay = 50
 
-    tn = 0 
+    tn = 0
     with BytesIO() as buffer:
 
         while not system_ready:
@@ -138,10 +138,12 @@ def check_gps():
                             oscillator_ready = True
 
                         if ant_showed and oscillator_ready:
-                            print("GPS Timer and Oscillator is ready ......" + 
+                            print("GPS Timer and Oscillator is ready ......" +
                                     green_ok + "\n")
                             print("Exited.....\n")
                             system_ready=True
+                            s.close
+                            return
 
     s.close()
 

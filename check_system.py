@@ -26,6 +26,7 @@ red_failed = bcolors.FAIL + " .....FAILED." + bcolors.ENDC
 # Check the GPS and oscillator
 check_gps()
 
+print("-"*80)
 # Check and correct kernel parameters
 #
 # rmem_max = 1610612736
@@ -62,8 +63,10 @@ for kp, v in zip(kernels_params, kernels_presults):
 
 
 
+print("-"*80)
 # Checking The Receiver output....
-subprocess.call(shlex.split('sudo id -nu'))
-print ("Checinkg output....\n")
+# rootuser=subprocess.call(shlex.split('sudo id -nu'))
+print(" ")
+print ("Checking output....\n")
 check_and_update()
 
