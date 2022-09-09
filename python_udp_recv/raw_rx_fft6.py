@@ -181,63 +181,67 @@ def dumpdata_hdf5_fft_q6(data_dir, data, id_data):
 
     global plan
 
-    data_in = cp.asarray(scale_f * data).astype(cp.float32).reshape(-1, avg_n,
-                                                                    fft_length)
-    if plan is None:
-        plan = cufft.get_fft_plan(data_in, axes=2, value_type='R2C')
+    try:
+        data_in = cp.asarray(scale_f * data).astype(cp.float32).reshape(-1, avg_n,
+                                                                        fft_length)
+        if plan is None:
+            plan = cufft.get_fft_plan(data_in, axes=2, value_type='R2C')
 
-    fft_out = cufft.rfft(data_in, axis=2, plan=plan)
+        fft_out = cufft.rfft(data_in, axis=2, plan=plan)
 
-    if quantity == 'amplitude':
-        mean_out = cp.mean(cp.abs(fft_out), axis=1)
-    elif quantity == 'power':
-        mean_out = cp.mean(cp.abs(fft_out)**2, axis=1)
-    else:
-        print("wrong")
-
-    i1 = nn*ngrp
-    i2 = i1+ngrp
-    fft_data_to_file[i1:i2,...] = mean_out
-    fft_block_time_to_file[i1:i2] = epoctime2date(block_time)
-    nn += 1
-
-
-    if i2 == n_blocks_to_save:
-        nn = 0
-
-        if loop_file:
-            k = file_cnt % 20
+        if quantity == 'amplitude':
+            mean_out = cp.mean(cp.abs(fft_out), axis=1)
+        elif quantity == 'power':
+            mean_out = cp.mean(cp.abs(fft_out)**2, axis=1)
         else:
-            k = file_cnt
+            print("wrong")
 
-        file_path = data_file_prefix(data_dir, block_time)
-        fout = os.path.join(file_path, labels[output_sel] +
-                '_' + str(k))
+        i1 = nn*ngrp
+        i2 = i1+ngrp
+        fft_data_to_file[i1:i2,...] = mean_out
+        fft_block_time_to_file[i1:i2] = epoctime2date(block_time)
+        nn += 1
 
-        temp_ps, temp_pl = read_temp(sock_temp)
 
-        f=h5.File(fout +'.h5','w')
+        if i2 == n_blocks_to_save:
+            nn = 0
 
-        dset = f.create_dataset(quantity, data=fft_data_to_file.get().astype(np.float32))
-        dset.attrs['temp_ps'] = temp_ps
-        dset.attrs['temp_pl'] = temp_pl
+            if loop_file:
+                k = file_cnt % 20
+            else:
+                k = file_cnt
 
-        dset = f.create_dataset('block_time', data=fft_block_time_to_file)
-        dset = f.create_dataset('block_ids', data=fft_id_to_file)
+            file_path = data_file_prefix(data_dir, block_time)
+            fout = os.path.join(file_path, labels[output_sel] +
+                    '_' + str(k))
 
-    # # # dset = f.create_dataset(quantity, data=cp.asnumpy(mean_out))
+            temp_ps, temp_pl = read_temp(sock_temp)
 
-        f.close()
+            f=h5.File(fout +'.h5','w')
 
-        if file_path == file_path_old:
-            file_cnt += 1
-        else:
-            logging.info("Congrate! Next hour, new sub-directory: " + file_path)
-            logging.info("The time is : " + epoctime2date(block_time))
-            file_cnt = 0
+            dset = f.create_dataset(quantity, data=fft_data_to_file.get().astype(np.float32))
+            dset.attrs['temp_ps'] = temp_ps
+            dset.attrs['temp_pl'] = temp_pl
 
-        tot_file_cnt += 1
-        file_path_old = file_path
+            dset = f.create_dataset('block_time', data=fft_block_time_to_file)
+            dset = f.create_dataset('block_ids', data=fft_id_to_file)
+
+        # # # dset = f.create_dataset(quantity, data=cp.asnumpy(mean_out))
+
+            f.close()
+
+            if file_path == file_path_old:
+                file_cnt += 1
+            else:
+                logging.info("Congrate! Next hour, new sub-directory: " + file_path)
+                logging.info("The time is : " + epoctime2date(block_time))
+                file_cnt = 0
+
+            tot_file_cnt += 1
+            file_path_old = file_path
+    except:
+        v.value = 1
+        raise ("dumpdata_hdf5_fft_q6 error")
 
 
     return

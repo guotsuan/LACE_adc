@@ -28,7 +28,7 @@ if [[ $OSTYPE == 'linux'* ]]; then
 
   for i in $NIC
   do
-    echo "adjusting 10G NIC $i"
+    echo "adjusting 10G NIC $i, should be set during the startup of NIC"
     sudo netctl stop $i
     sudo ip link set $i txqueuelen 10000
     sudo ethtool -G $i rx 8184

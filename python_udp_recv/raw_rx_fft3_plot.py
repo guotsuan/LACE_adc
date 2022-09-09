@@ -48,6 +48,7 @@ if args_len < 2:
     sys.exit()
 
 elif args_len == 2:
+    waterf = False
     try:
         args = sys.argv[1].split()
         input_type = int(args[0])
@@ -62,6 +63,20 @@ elif args_len == 2:
     else:
         print("display output type from input in real time: ", labels[output_sel])
 
+elif args_len == 3:
+    try:
+        args = sys.argv[1].split()
+        input_type = int(args[0])
+        waterf = True
+        output_sel = input_type
+    except:
+        print("input type must be one of 0,1,2,3")
+
+    if output_sel > 3:
+        print("input type", input_type, " must be one of 0,1,2,3")
+        sys.exit()
+    else:
+        print("display output type from input in real time: ", labels[output_sel])
 
 
 
@@ -166,6 +181,7 @@ def save_fft_data(fft_out_q, dconf, v, tot):  #{{{
 
 
     import matplotlib.pyplot as plt
+    import matplotlib
     from matplotlib.animation import FuncAnimation
     from scipy.fft import rfftfreq
     from fft_helper import fft_to_dBm
@@ -173,9 +189,10 @@ def save_fft_data(fft_out_q, dconf, v, tot):  #{{{
     from scipy.signal import resample
     from scipy.interpolate import interp1d
 
-    print("process id: ", os.getpid())
 
     global mean_fft_data
+
+    # matplotlib.use('qt5agg')
 
     fft_length = dconf['fft_npoint']
     fft_single_time = dconf['fft_single_time']
@@ -245,95 +262,101 @@ def save_fft_data(fft_out_q, dconf, v, tot):  #{{{
         if i% ngrp == 0 or isinstance(fft_data_rec, str):
             fft_data_rec, _, _ = fft_out_q.recv()
 
-        # nsample = 1000
-        # if isinstance(waterfall_data, str):
-            # waterfall_data = np.zeros((ngrp*5, nsample)) - 100.
+        if waterf == True:
+            nsample = 1000
+            if isinstance(waterfall_data, str):
+                waterfall_data = np.zeros((ngrp*5, nsample)) - 100.
 
-        # if i % ngrp == 0:
-            # ff = interp1d(px, fft_data_rec)
-            # xx = np.linspace(0, px.max(), nsample)
-            # waterfall_data[0:ngrp,...] = fft_to_dBm(ff(xx))
+            if i % ngrp == 0:
+                ff = interp1d(px, fft_data_rec)
+                xx = np.linspace(0, px.max(), nsample)
+                waterfall_data[0:ngrp,...] = fft_to_dBm(ff(xx))
 
-        # waterfall_data = np.roll(waterfall_data, 1, 0)
-        # py = np.arange(ngrp*5)
-        # xx,yy=np.meshgrid(px, py)
-        # ax2.pcolormesh(xx, yy, waterfall_data)
+            waterfall_data = np.roll(waterfall_data, 1, 0)
+            # py = np.arange(ngrp*5)
+            # xx,yy=np.meshgrid(px, py)
+            # ax.pcolormesh(xx, yy, waterfall_data)
 
-        # ax2.imshow(waterfall_data[ngrp:,...], resample=False,
-                   # aspect='auto',
-                   # interpolation='none', vmin=-120, vmax=-80)
-        # tick_locs = np.arange(0,nsample,100)
-        # tick_labels= ["{0:.0f}".format(i) for i in  242*tick_locs/nsample]
-        # ax2.set_xticks(tick_locs)
-        # ax2.set_xticklabels(tick_labels)
+            ax.imshow(waterfall_data[ngrp:,...], resample=False,
+                    aspect='auto',
+                    interpolation='none', vmin=-120, vmax=-80)
+            tick_locs = np.arange(0,nsample,100)
+            tick_labels= ["{0:.0f}".format(i) for i in  242*tick_locs/nsample]
+            ax.set_xticks(tick_locs)
+            ax.set_xticklabels(tick_labels)
+            ax.set_xlabel("Freq (Mhz)")
+            ax.set_ylabel("Time")
 
-
-        if callback.single_plot:
-            ax.clear()
-            power_dbm = fft_to_dBm(fft_data_rec[i%ngrp,...])
-
-
-            nbuff = 7
-            if isinstance(old_fft_data_rec, str):
-                old_fft_data_rec = np.zeros((nbuff, fft_data_rec.shape[1])) - 500.
-
-            alpha = 0.8
-            colors = ['m', 'b', 'c', 'g', 'r', 'orange', 'y']
-            if callback.ghost:
-                for ii in range(nbuff):
-                    if old_fft_data_rec[ii, 0] > -200:
-                        an= alpha - ii*0.02 - 0.02
-                        # print(alpha)
-                        ax.plot(px, old_fft_data_rec[ii,...] + 5*ii + 5,
-                                color=colors[ii], alpha=0.6)
-
-
-            ax.plot(px, power_dbm, color='k', alpha=0.7)
-            ax.set_title(f"avg time: {avg_time:.3f} ms, avg_n: {avg_n:d}, \
-                         frame id: {i%ngrp:d}")
-
-
-            old_fft_data_rec = np.roll(old_fft_data_rec,1,axis=0)
-            old_fft_data_rec[0,...] = power_dbm
         else:
 
-            if callback.avg_num <= ngrp:
-                if (i % (ngrp/callback.avg_num) == 0) or isinstance(mean_fft_data, str):
-                    fft_l = fft_data_rec.shape[1]
-                    nn = callback.avg_num
-                    mean_fft_data = np.mean(fft_data_rec.reshape((-1,nn,fft_l)), axis=1)
+            # ghost plotting
 
-                idx = i % int(ngrp//callback.avg_num)
+            if callback.single_plot:
                 ax.clear()
-                ax.plot(px, fft_to_dBm(mean_fft_data[idx,...]), color='b', alpha=0.8)
+                power_dbm = fft_to_dBm(fft_data_rec[i%ngrp,...])
 
+
+                nbuff = 7
+                if isinstance(old_fft_data_rec, str):
+                    old_fft_data_rec = np.zeros((nbuff, fft_data_rec.shape[1])) - 500.
+
+                alpha = 0.8
+                colors = ['m', 'b', 'c', 'g', 'r', 'orange', 'y']
+                if callback.ghost:
+                    for ii in range(nbuff):
+                        if old_fft_data_rec[ii, 0] > -200:
+                            an= alpha - ii*0.02 - 0.02
+                            # print(alpha)
+                            ax.plot(px, old_fft_data_rec[ii,...] + 5*ii + 5,
+                                    color=colors[ii], alpha=0.6)
+
+
+                ax.plot(px, power_dbm, color='k', alpha=0.7)
+                ax.set_title(f"avg time: {avg_time:.3f} ms, avg_n: {avg_n:d}, \
+                            frame id: {i%ngrp:d}")
+
+
+                old_fft_data_rec = np.roll(old_fft_data_rec,1,axis=0)
+                old_fft_data_rec[0,...] = power_dbm
             else:
-                fft_l = fft_data_rec.shape[1]
-                if gnn == 0:
-                    mean_fft_data = np.zeros((callback.avg_num, fft_l))
 
-                if gnn*ngrp < callback.avg_num:
-                    i1 = gnn*ngrp
-                    i2 = i1+ngrp
-                    mean_fft_data[i1:i2,...] = fft_data_rec
-                    gnn +=1
+                if callback.avg_num <= ngrp:
+                    if (i % (ngrp/callback.avg_num) == 0) or isinstance(mean_fft_data, str):
+                        fft_l = fft_data_rec.shape[1]
+                        nn = callback.avg_num
+                        mean_fft_data = np.mean(fft_data_rec.reshape((-1,nn,fft_l)), axis=1)
 
-                if gnn*ngrp == callback.avg_num:
-                    mean_data = np.mean(mean_fft_data, axis=0)
+                    idx = i % int(ngrp//callback.avg_num)
                     ax.clear()
-                    ax.plot(px, fft_to_dBm(mean_data), color='b', alpha=0.8)
-                    gnn = 0
+                    ax.plot(px, fft_to_dBm(mean_fft_data[idx,...]), color='b', alpha=0.8)
 
-            ax.set_title(f"avg time: {callback.avg_num*avg_time:.3f} ms, \
-                         avg_n: {callback.avg_num*avg_n:d}, frame id {i%ngrp:d}")
-        ax.set_xlim([0, 245])
+                else:
+                    fft_l = fft_data_rec.shape[1]
+                    if gnn == 0:
+                        mean_fft_data = np.zeros((callback.avg_num, fft_l))
 
-        ax.set_ylim([-120, -10])
-        ax.set_xlabel("Freq (Mhz)")
-        ax.set_ylabel("Power (dBm)")
+                    if gnn*ngrp < callback.avg_num:
+                        i1 = gnn*ngrp
+                        i2 = i1+ngrp
+                        mean_fft_data[i1:i2,...] = fft_data_rec
+                        gnn +=1
+
+                    if gnn*ngrp == callback.avg_num:
+                        mean_data = np.mean(mean_fft_data, axis=0)
+                        ax.clear()
+                        ax.plot(px, fft_to_dBm(mean_data), color='b', alpha=0.8)
+                        gnn = 0
+
+                ax.set_title(f"avg time: {callback.avg_num*avg_time:.3f} ms, \
+                            avg_n: {callback.avg_num*avg_n:d}, frame id {i%ngrp:d}")
+            ax.set_xlim([0, 245])
+
+            ax.set_ylim([-120, -10])
+            ax.set_xlabel("Freq (Mhz)")
+            ax.set_ylabel("Power (dBm)")
 
 
-    ani = FuncAnimation(fig, animate, interval = 50)
+    ani = FuncAnimation(fig, animate, interval = 20)
 
     # plt.tight_layout()
     plt.show()
