@@ -1,27 +1,26 @@
 # LACE_adc
 
-ADC data recieving program draft version
+ADC data recieving program draft (Python) version
 
 ## System requirement 
-1. set kernel parameters for the maxium buffersize of UDP socket
+1. check_system.py will set kernel parameters and update the setting of Receiver accordingly
 ```
-./set_kerenl_params.sh
+python check_system.py
 
 ```
-2. Change the mac addr the data was bound to the below mac address (can be changed in the FPGA driver)
+2. Collecting and Saveing file with spectrum of fft: raw_rx_fft5.py and raw_rx_fft6.py
 ```
- sudo ip link set dev enp119s0f0 address 00:07:43:11:c0:a0
+ ./raw_rx_fft6.py 0 /data/test13/
 ```
 
-3. Set the MTU = 9000
+3. Collecting and Saving raw sample data: ???
 ```
-/usr/bin/ip link set enp119s0f0 mtu 900
 
 ```
 
 ## Versions
 
-1. Python version: slower than C++ version
+1. Python version:  is working
 2. C++ version: compile
 ```
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-O3 -Wall -Wextra" ../cpp_udp_rec
