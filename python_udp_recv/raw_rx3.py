@@ -114,9 +114,11 @@ data_conf['data_size'] = data_size
 
 sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
+sock.settimeout(2.0)
 
-
-
+affinity_mask = {0, 1}
+pid = 0
+os.sched_setaffinity(0, affinity_mask)
 
 if err:
     sock.close()
@@ -192,7 +194,11 @@ if __name__ == '__main__':
     # to drap the data frames if one of them are lost in the transfering.
 
     while tmp_id % warmup_size != warmup_size - 1:
-        sock.recv_into(warmup_buff, payload_size)
+        try:
+            sock.recv_into(warmup_buff, payload_size)
+        except:
+            raise("Data receiving error")
+
         tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
         payload_size], 'big')
 
@@ -216,6 +222,7 @@ if __name__ == '__main__':
 
     i = 0
     file_cnt = 0
+    tot_file_cnt = 0
     loop_cnt = 0
     fft_block_cnt = 0
 
@@ -238,6 +245,10 @@ if __name__ == '__main__':
 
     file_move=Process(target=move_file, args=(file_q, v))
     file_move.start()
+
+    print("   ")
+    print("Time of single loop     Total lost packets    Elapsed time   Speed \
+           Num of saved file\n")
 
     while forever:
         if file_stop_num < 0:
@@ -344,6 +355,7 @@ if __name__ == '__main__':
                 file_cnt = 0
 
             file_path_old = file_path
+            tot_file_cnt += 1
 
         else:
             print("block is dropped")
@@ -358,8 +370,10 @@ if __name__ == '__main__':
         if time_now - time_last > 10.0:
 
             time_last = time.perf_counter()
+            # display_metrics(time_before, time_now, s_time, num_lost_all,
+                    # data_conf)
             display_metrics(time_before, time_now, s_time, num_lost_all,
-                    data_conf)
+                    data_conf, tot_file_cnt=tot_file_cnt)
             i = 0
 
         time_before = time_now
