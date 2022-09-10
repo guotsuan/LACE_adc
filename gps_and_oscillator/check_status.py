@@ -33,6 +33,44 @@ class bcolors:
 green_ok = bcolors.OKGREEN + " OK" + bcolors.ENDC
 red_failed = bcolors.FAIL + " red_failed" + bcolors.ENDC
 
+def get_gps_coord():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    try:
+        s.connect(("192.168.1.111", 4001))
+    except socket_error as serr:
+        print("Cannot connect to the GPS/NTP server")
+        print("Please wait for the GPS/NTP server to power up... or we have a serious problem.")
+        sys.exit()
+
+    get_coord =False
+
+    with BytesIO() as buffer:
+        while not get_coord:
+            ff = s.recv(2048)       # Read in some number of bytes -- balance this
+            buffer.write(ff)
+            buffer.seek(0)
+            for line in buffer.readlines():
+                if line == '':
+                    break
+
+                try:
+                    msg = pynmea2.parse(line.decode())
+                except ParseError:
+                    pass
+                else:
+                    if hasattr(msg, "lat"):
+                        lat = msg.lat
+                        full_lat = msg.lat_dir + lat[0:2]+ u"\N{DEGREE SIGN}" + lat[2:] + "'"
+
+                        lon = msg.lon
+                        full_lon = msg.lon_dir + lon[0:3]+ u"\N{DEGREE SIGN}" + lon[3:] + "'"
+                        s.close()
+                        get_coord = True
+
+                        return full_lat, full_lon
+
+
 def check_gps():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 

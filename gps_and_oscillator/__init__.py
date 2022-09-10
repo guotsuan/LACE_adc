@@ -9,3 +9,4 @@
 """
 
 """
+__name__ = "adc.gps_and_oscillator"

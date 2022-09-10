@@ -26,6 +26,7 @@ from multiprocessing import shared_memory
 import cupyx.scipy.fft as cufft
 
 from params import split_by_min, data_conf,fft_method,labels, loop_file
+from check_status import get_gps_coord
 
 plan = None
 
@@ -35,6 +36,8 @@ def read_temp(sock):
     bytesToSend         = str.encode(msgFromClient)
     serverAddressPort   = ("192.168.1.188", 20001)
     bufferSize          = 1024
+
+    sock.settimeout(2.0)
 
     try:
         sock.sendto(bytesToSend, serverAddressPort)
@@ -57,6 +60,12 @@ def save_meta_file(fname, stime, s_id):
     ff.create_dataset('time zone', data='utc')
     ff.create_dataset('version', data=0.5)
     ff.create_dataset('id_start', data=s_id)
+
+    # loc = get_gps_coord()
+    # if loc is not None:
+        # print("saving locattion")
+        # ff.create_dataset('location', data=loc)
+
     ff.close()
 
 def display_metrics(time_before,time_now, s_time, num_lost_all, dconf,
@@ -72,17 +81,20 @@ def display_metrics(time_before,time_now, s_time, num_lost_all, dconf,
     acq_time = time_now - time_before
 
     # os.system("clear")
-    print(f"frame loop time: {time_now - time_before:.3f},", \
-            " lost_packet:", num_lost_all, \
-            f"already run: {time_now - s_time:.3f}")
 
-    if tot_file_cnt is not None:
-        print("The speed of acquaring data: " +
-              f'{acq_data_size/1024/1024/acq_time:.3f} MB/s ' +
-              "tot_file_num: " + f'{tot_file_cnt:d}\n')
-    else:
-        print("The speed of acquaring data: " +
-                f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
+    print ("\033[A                                                                                         \033[A")
+    print(f"{time_now - time_before:.3f} s, \t\t      ", num_lost_all, \
+          f"\t\t{time_now - s_time:.3f} s", \
+          f'    {acq_data_size/1024/1024/acq_time:.3f} MB/s, ' \
+          f'    {tot_file_cnt:d}')
+
+    # if tot_file_cnt is not None:
+        # print("The speed of acquaring data: " +
+              # f'{acq_data_size/1024/1024/acq_time:.3f} MB/s, ' +
+              # "The number of total files saved: " + f'{tot_file_cnt:d}\n')
+    # else:
+        # print("The speed of acquaring data: " +
+                # f'{acq_data_size/1024/1024/acq_time:.3f} MB/s\n')
 
 
     # logging.info(f"frame loop time: {time_now - time_before:.3f}," + \
