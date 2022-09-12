@@ -46,35 +46,25 @@ output_sel = -1
 file_path = ''
 file_path_old =''
 
-args_len = len(sys.argv)
-if args_len < 3:
-    print("python rx.py <rx_type> <data_dir> ")
-    sys.exit()
+parser = argparse.ArgumentParser()
+parser.add_argument("port",
+                    choices=[0,1,2,3],
+                    help="the port number of the input that you want to  observe",
+                    type=int)
+parser.add_argument("directory_to_save",
+                    help="the path of directory to save the data")
+args = parser.parse_args()
 
-elif args_len == 3:
-    try:
-        args = sys.argv[1].split()
-        input_type = int(args[0])
+from params import *
+from rx_helper import *
 
-        data_dir = sys.argv[2]
-        output_sel = input_type
-    except:
-        print("input type must be one of 0,1,2,3")
+output_sel = args.port
+data_dir = args.directory_to_save
 
-    if output_sel > 3:
-        print("input type", input_type, " must be one of 0,1,2,3")
-        sys.exit()
-    else:
-        print("recieving output type from input: ", labels[output_sel])
-        print("saving into the folder: ", data_dir)
+print(" ")
+print("-"*80)
 
-
-if data_dir == '':
-    sys.exit("data directory has not been specified")
-else:
-    prepare_folder(data_dir)
-
-
+prepare_folder(data_dir)
 
 data_conf['output_sel'] = output_sel
 scale_f = data_conf['voltage_scale_f']
