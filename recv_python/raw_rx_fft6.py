@@ -25,6 +25,7 @@ import socket
 import sys
 import os
 import time
+import json
 import datetime
 import shutil
 import argparse
@@ -52,13 +53,14 @@ parser.add_argument("directory_to_save",
                     help="the path of directory to save the data")
 args = parser.parse_args()
 
-from params import *
-from rx_helper import *
 
 output_sel = args.port
 data_dir = args.directory_to_save
 
 print(" ")
+print("-"*80)
+from params import *
+from rx_helper import *
 print("-"*80)
 print("recieving output type from input: ", labels[output_sel])
 print("saving into the folder: ", data_dir)
@@ -301,6 +303,7 @@ if __name__ == '__main__':
     time_last = time.perf_counter()
 
     # FIXME: how to save time xxxxxx.xxxx properly
+
     data_conf['id_tail_before'] = id_tail_before
     data_conf['t0_time'] = t0_time
     start_id = id_tail_before
@@ -311,6 +314,11 @@ if __name__ == '__main__':
 
     executor = futures.ThreadPoolExecutor(max_workers=1)
 
+    # Save data_conf into Jason file
+    json_data_conf = os.path.join(data_dir,'data_conf.json')
+    with open(json_data_conf, 'w') as f:
+        json.dump(data_conf, f, sort_keys=True, indent=4,
+                  separators=(',',': '))
 
     print("   ")
     print("Time of single loop     Total lost packets    Elapsed time   Speed \

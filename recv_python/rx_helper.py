@@ -25,7 +25,7 @@ from multiprocessing import shared_memory
 
 import cupyx.scipy.fft as cufft
 
-from params import split_by_min, data_conf,fft_method,labels, loop_file
+from params import data_conf,fft_method,labels, loop_file
 
 sys.path.append('../')
 from gps_and_oscillator.check_status import get_gps_coord
@@ -62,6 +62,7 @@ def save_meta_file(fname, stime, s_id):
     ff.create_dataset('time zone', data='utc')
     ff.create_dataset('version', data=0.5)
     ff.create_dataset('id_start', data=s_id)
+    ff.create_dataset('file_stop_num', data=data_conf['file_stop_num'])
 
     # loc = get_gps_coord()
     # if loc is not None:
@@ -131,7 +132,7 @@ def data_file_prefix(indir, stime, unpack=False):
 
     folder_level1 = dt.strftime("%Y-%m-%d")
     folder_level2 = dt.strftime("%H")
-    if split_by_min:
+    if data_conf['split_by_min']:
         folder_level3 = dt.strftime("%M")
         full_path = os.path.join(indir, folder_level1, folder_level2, folder_level3)
     else:

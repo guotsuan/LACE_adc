@@ -22,12 +22,15 @@ import sys
 
 # the order of the lists is "RAW1, FFT1, RAW2, FFT2"
 
+# do not change
+# raw1, fft1, raw2, fft2
+labels = ["RAW_output1", "FFT_output1", "RAW_output2", "FFT_output2"]
 src_ip = ["192.168.90.20", "192.168.90.21", "192.168.90.30", "192.168.90.31"]
-
 src_port = [59000, 59001, 59000, 59001]
-
-
 dst_port = [60000, 60001, 60000, 60001]
+dst_mac = []
+dst_ip = []
+data_conf = {}
 
 # dst_ip is genereated automatically
 # dst_ip = ["192.168.90.100", "192.168.90.101", "192.168.90.100", "192.168.90.111"]
@@ -52,9 +55,6 @@ else:
     else:
        network_faces = ["enp119s0f0", "enp119s0f0","enp119s0f1", "enp119s0f1"]
 
-dst_mac = []
-dst_ip = []
-
 for nic in network_faces:
     if nic =='':
         dst_mac.append("")
@@ -71,23 +71,7 @@ for nic in network_faces:
         dst_mac.append(addrs[netifaces.AF_LINK][0]['addr'])
         dst_ip.append(addrs[netifaces.AF_INET][0]['addr'])
 
-#print("get MAC address for NICs:")
-#print(dst_mac, "\n")
 
-data_conf = {}
-
-# mac address are no longer need to specify
-# dst_mac
-
-# do not change
-labels = ["RAW_output1", "FFT_output1", "RAW_output2", "FFT_output2"]
-
-raw1 = 0
-fft1 = 1
-raw2 = 2
-fft2 = 3
-
-# raw1, fft1, raw2, fft2
 
 data_conf['output_fft'] = True
 if 'fft' in sys.argv[0]:
@@ -98,21 +82,16 @@ else:
     print("output FFT is False")
 
 loop_file= True
-udp_raw = False
-
-max_workers = 8
-
-fft_method = 'numpy'
-
+# max_workers = 8
+# fft_method = 'numpy'
 # use data_conf to group all the parameters
-
-
+data_conf['node_name'] = node_name
+data_conf['network_faces'] = network_faces
 data_conf['sample_rate'] = 480e6
 data_conf['data_size'] = 8192
 data_conf['save_hdf5'] = True
 data_conf['save_lost'] = True
 
-data_conf['output_type'] = raw1
 data_conf['voltage_scale_f'] = 0.5/2**15
 data_conf['fft_npoint'] = 65536
 data_conf['avg_n'] = 8
@@ -138,7 +117,6 @@ data_conf['avg_time'] = 1.0   #ms
 fft_single_time = data_conf['fft_npoint'] / sample_rate_over_100
 data_conf['fft_single_time'] = fft_single_time
 data_conf['avg_time'] = data_conf['avg_n']*fft_single_time
-# data_conf['avg_n'] = int(av_time/fft_single_time)
 
 # How many udp packets of data received in one read loop
 
@@ -171,10 +149,9 @@ else:
 # few files
 # run_forever = True
 data_conf['file_stop_num'] = 20000
-#file_stop_num = -1
 
 # default by hour
-split_by_min = False
+data_conf['split_by_min'] = False
 
 
 class bcolors:
