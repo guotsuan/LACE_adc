@@ -82,8 +82,8 @@ else:
     print("output FFT is False")
 
 loop_file= True
+fft_method = 'numpy'
 # max_workers = 8
-# fft_method = 'numpy'
 # use data_conf to group all the parameters
 data_conf['node_name'] = node_name
 data_conf['network_faces'] = network_faces
@@ -91,6 +91,7 @@ data_conf['sample_rate'] = 480e6
 data_conf['data_size'] = 8192
 data_conf['save_hdf5'] = True
 data_conf['save_lost'] = True
+
 
 data_conf['voltage_scale_f'] = 0.5/2**15
 data_conf['fft_npoint'] = 65536

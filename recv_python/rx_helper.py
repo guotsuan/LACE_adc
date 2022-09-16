@@ -25,7 +25,7 @@ from multiprocessing import shared_memory
 
 import cupyx.scipy.fft as cufft
 
-from params import data_conf,fft_method,labels, loop_file
+from params import data_conf,labels, loop_file ,fft_method
 
 sys.path.append('../')
 from gps_and_oscillator.check_status import get_gps_coord

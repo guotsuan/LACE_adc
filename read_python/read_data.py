@@ -23,6 +23,9 @@ from scipy.fft import rfftfreq
 
 import matplotlib.pyplot as plt
 
+sys.path.append("../")
+from recv_python.fft_helper import *
+
 def fft_px(data_conf):
     np = data_conf['fft_npoint']
     sample_rate_in_M = data_conf['sample_rate']/1e6
@@ -92,7 +95,8 @@ for file_cnt, data_f in enumerate(data_file_list[0:10]):
 
 
 px = fft_px(data_conf)
-plt.plot(px, fft_data[0,0,:])
-plt.savefig("test.pdf")
+plt.plot(px, fft_to_dBm(fft_data[0,0,:]))
+# plt.savefig("test.pdf")
+plt.show()
 
 
