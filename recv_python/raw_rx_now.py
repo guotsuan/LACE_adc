@@ -14,57 +14,33 @@ import socket
 import sys
 import os
 import time
-import datetime
-import threading
 import shutil
+import argparse
+import json
 from concurrent import futures
 from multiprocessing import RawValue, Process, SimpleQueue
 
 import h5py as h5
 import numpy as np
-#import termios, fcntl
-
 
 # put all configrable parameters in params.py
 from params import *
 from rx_helper import *
 
-affinity_mask = {10,11}
+affinity_mask = {0, 1}
 os.sched_setaffinity(0, affinity_mask)
 
 data_dir = ''
 good = 0
 
-if data_conf['output_fft']:
-    sys.exit("wrong program, please use rx_fft.py or change output_fft to False")
-
-args_len = len(sys.argv)
-if args_len < 3:
-    print("python rx.py <rx_type> <data_dir> ")
-    sys.exit()
-
-elif args_len == 3:
-    try:
-        args = sys.argv[1].split()
-        input_type = int(args[0])
-
-        data_dir = sys.argv[2]
-        output_sel = input_type
-    except:
-        print("input type must be one of 0,1,2,3")
-
-    if output_sel > 3:
-        print("input type", input_type, " must be one of 0,1,2,3")
-        sys.exit()
-    else:
-        print("recieving output type from input: ", labels[output_sel])
-        print("saving into the folder: ", data_dir)
+from params import *
+from rx_helper import *
+print("-"*80)
+print("recieving output type from input: ", labels[output_sel])
+print("saving into the folder: ", data_dir)
 
 
-if data_dir == '':
-    sys.exit("data directory has not been specified")
-else:
-    prepare_folder(data_dir)
+prepare_folder(data_dir)
 
 
 data_conf['output_sel'] = output_sel
@@ -246,6 +222,11 @@ if __name__ == '__main__':
     file_move=Process(target=move_file, args=(file_q, v))
     file_move.start()
 
+    json_data_conf = os.path.join(data_dir,'data_conf.json')
+    with open(json_data_conf, 'w') as f:
+        json.dump(data_conf, f, sort_keys=True, indent=4,
+                  separators=(',',': '))
+
     print("   ")
     print("Time of single loop     Total lost packets    Elapsed time   Speed \
            Num of saved file\n")
@@ -378,12 +359,14 @@ if __name__ == '__main__':
 
         time_before = time_now
 
-        if (file_stop_num > 0) and (file_cnt > file_stop_num) :
+        if (file_stop_num > 0) and (file_cnt >= file_stop_num) :
             forever = False
             v.value = 1
 
         i += 1
 
+    print("Process save fft ended")
+    logging.warning("Process save fft ended")
     file_move.join()
     sock.close()
 

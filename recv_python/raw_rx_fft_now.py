@@ -28,7 +28,6 @@ import time
 import json
 import datetime
 import shutil
-import argparse
 from concurrent import futures
 
 # import h5py as h5
@@ -43,29 +42,17 @@ output_sel = -1
 file_path = ''
 file_path_old = ''
 
-parser = argparse.ArgumentParser()
-parser.add_argument("port",
-                    choices=[0,1,2,3],
-                    help="the port number of the input that you want to  observe",
-                    type=int)
-parser.add_argument("directory_to_save",
-                    help="the path of directory to save the data")
-args = parser.parse_args()
 
-
-output_sel = args.port
-data_dir = args.directory_to_save
-
-print(" ")
-print("-"*80)
 from params import *
 from rx_helper import *
 print("-"*80)
+print(" ")
 print("recieving output type from input: ", labels[output_sel])
 print("saving into the folder: ", data_dir)
 
 prepare_folder(data_dir)
 
+data_conf['fft_npoint'] = args.fft_npoint
 data_conf['output_sel'] = output_sel
 scale_f = data_conf['voltage_scale_f']
 
@@ -123,7 +110,7 @@ if n_blocks_to_save < ngrp:
     data_conf['n_blocks_to_save'] = ngrp
     log_ngrp = True
 
-dur_per_frame = data_size/sample_rate_over_100/2.0
+dur_per_frame = data_size/sample_rate_over_1000/2.0
 
 sock = socket.socket(socket.AF_INET,  socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
@@ -142,7 +129,7 @@ if err:
     sock.close()
     raise ValueError("set socket error")
 
-print("Receiving IP and Port: ", udp_ip, udp_port, "Binding...")
+print("Receiving IP and Port: ", udp_ip, udp_port, "Binding..." + green_ok)
 sock.bind((udp_ip, udp_port))
 
 
@@ -258,7 +245,7 @@ if __name__ == '__main__':
     # Warm up the system....
     # Drop the some data packets to avoid unstable
 
-    print("Starting....")
+    print("Starting...." + green_ok)
     payload_buff_head = payload_buff
 
     id_head_before = 0
@@ -269,7 +256,7 @@ if __name__ == '__main__':
 
     tmp_id = 0
 
-    print("Warming Up....")
+    print("Warming Up...." + green_ok)
     # Wait until the SeqNo is 1023 to start collect data, which is easy
     # to drap the data frames if one of them are lost in the transfering.
 
@@ -286,7 +273,7 @@ if __name__ == '__main__':
         payload_size], 'big')
 
     print("Warmup finished with last data seqNo: ", id_tail_before,
-            tmp_id % block_size)
+            tmp_id % block_size, green_ok)
 
     logfile = os.path.join(data_dir, 'rx.log')
     logging.basicConfig(filename=logfile, level=logging.INFO,
@@ -392,9 +379,9 @@ if __name__ == '__main__':
                     logging.warning(id_arr[bad-1:bad+2])
                     num_lost_all += 1
                 else:
-                    # wfile = executor.submit(dumpdata_hdf5_fft_q6,
-                                        # data_dir, udp_payload_arr, id_arr)
-                    dumpdata_hdf5_fft_q6(data_dir, udp_payload_arr, id_arr)
+                    wfile = executor.submit(dumpdata_hdf5_fft_q6,
+                                        data_dir, udp_payload_arr, id_arr)
+                    # dumpdata_hdf5_fft_q6(data_dir, udp_payload_arr, id_arr)
             else:
                 logging.warning("block is not connected, %i, %i", id_tail_before, id_arr[0])
                 num_lost_all += 1

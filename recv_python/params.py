@@ -11,6 +11,7 @@ the parameters for recv.py
 """
 import platform as pf
 import netifaces
+import argparse
 import os
 import sys
 
@@ -31,13 +32,34 @@ dst_port = [60000, 60001, 60000, 60001]
 dst_mac = []
 dst_ip = []
 data_conf = {}
-
-# dst_ip is genereated automatically
 # dst_ip = ["192.168.90.100", "192.168.90.101", "192.168.90.100", "192.168.90.111"]
 
 def is_nic_up(nic):
     addr = netifaces.ifaddresses(nic)
     return netifaces.AF_INET in addr
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("port",
+                    choices=[0,1,2,3],
+                    help="the port number of the input that you want to  observe",
+                    type=int)
+parser.add_argument("directory_to_save",
+                    help="the path of directory to save the data")
+
+parser.add_argument("--fft_npoint",
+                    type=int,
+                    default = 65536,
+                    help="the number of fft points")
+
+args = parser.parse_args()
+
+
+output_sel = args.port
+data_dir = args.directory_to_save
+
+print(" ")
+print("-"*80)
 
 platform_system = pf.system()
 if 'Darwin' in platform_system:
@@ -71,15 +93,17 @@ for nic in network_faces:
         dst_mac.append(addrs[netifaces.AF_LINK][0]['addr'])
         dst_ip.append(addrs[netifaces.AF_INET][0]['addr'])
 
-
-
 data_conf['output_fft'] = True
+
 if 'fft' in sys.argv[0]:
     data_conf['output_fft'] = True
     print("output FFT is True")
 else:
     data_conf['output_fft'] = False
     print("output FFT is False")
+
+
+
 
 loop_file= True
 fft_method = 'numpy'
@@ -94,9 +118,9 @@ data_conf['save_lost'] = False
 
 
 data_conf['voltage_scale_f'] = 0.5/2**15
-data_conf['fft_npoint'] = 65536//16
+data_conf['fft_npoint'] = args.fft_npoint
 data_conf['avg_n'] = 8
-sample_rate_over_100 = 480000
+sample_rate_over_1000 = 480000
 
 if data_conf['output_fft']:
     data_conf['n_frames_per_loop'] = 8192*2
@@ -114,8 +138,8 @@ else:
 ###########################################################################
 
 # the average time of spectrum
-data_conf['avg_time'] = 1.0   #ms
-fft_single_time = data_conf['fft_npoint'] / sample_rate_over_100
+# data_conf['avg_time'] = 1.0   #ms
+fft_single_time = data_conf['fft_npoint'] / sample_rate_over_1000
 data_conf['fft_single_time'] = fft_single_time
 data_conf['avg_time'] = data_conf['avg_n']*fft_single_time
 
@@ -131,9 +155,6 @@ data_conf['n_fft_blocks_per_loop'] = \
 # how many averageed fft groups in one read loop
 data_conf['n_avg_fft_blocks_per_loop'] = \
         data_conf['n_fft_blocks_per_loop'] // data_conf['avg_n']
-
-print("n_fft_blocks_per_loop", data_conf['n_fft_blocks_per_loop'])
-
 
 
 # the size of socket buffer for recieving data
@@ -153,6 +174,18 @@ data_conf['file_stop_num'] = 2
 # default by hour
 data_conf['split_by_min'] = False
 
+print("Each fft block has:",
+      data_conf['fft_npoint'], " points")
+print("Each processing loop have",
+      data_conf['n_fft_blocks_per_loop'], "fft blocks")
+print(f"The average time of fft spectrum is {data_conf['avg_time']:.3f}",
+      "ms and ", data_conf['avg_n'], " times.")
+if data_conf['file_stop_num'] < 0:
+    print("The Program will run forever")
+else:
+    print("The Program will stop after saving ",
+          data_conf['file_stop_num'], " files")
+
 
 class bcolors:
     HEADER = '\033[95m'
@@ -164,3 +197,5 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+
+green_ok = bcolors.OKGREEN + " .....OK." + bcolors.ENDC
