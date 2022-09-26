@@ -21,14 +21,14 @@ def v_to_dBm(vin):
 
 def fft_to_dBV(data):
 
-    out = 20.*np.log10(np.abs(data/data.size))
+    out = 20.*np.log10(np.abs(data/data.shape[-1]))
     return out
 
 def fft_to_dBm(data):
 
     resistor = 50
     mili_power = 0.001
-    out = 10.*np.log10(np.abs(data/data.size)**2/resistor/mili_power)
+    out = 10.*np.log10(np.abs(data/data.shape[-1])**2/resistor/mili_power)
     return out
 
 

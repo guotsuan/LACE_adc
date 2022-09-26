@@ -14,7 +14,7 @@ from warnings import filterwarnings
 from scapy.all import sniff
 import sys
 sys.path.append('../')
-from python_udp_recv.params import *
+from recv_python.params import *
 
 import platform as pf
 import netifaces as nics

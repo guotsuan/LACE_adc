@@ -90,11 +90,11 @@ data_conf['network_faces'] = network_faces
 data_conf['sample_rate'] = 480e6
 data_conf['data_size'] = 8192
 data_conf['save_hdf5'] = True
-data_conf['save_lost'] = True
+data_conf['save_lost'] = False
 
 
 data_conf['voltage_scale_f'] = 0.5/2**15
-data_conf['fft_npoint'] = 65536
+data_conf['fft_npoint'] = 65536//16
 data_conf['avg_n'] = 8
 sample_rate_over_100 = 480000
 
@@ -121,7 +121,6 @@ data_conf['avg_time'] = data_conf['avg_n']*fft_single_time
 
 # How many udp packets of data received in one read loop
 
-data_conf['save_lost'] = False
 
 # every *fft_npoint* will be grouped for FFT
 # how many fft groups in one read loop
@@ -149,7 +148,7 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-data_conf['file_stop_num'] = 20000
+data_conf['file_stop_num'] = 2
 
 # default by hour
 data_conf['split_by_min'] = False

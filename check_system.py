@@ -16,7 +16,7 @@ import getpass
 
 from subprocess import Popen
 
-from python_udp_recv.params import bcolors
+from recv_python.params import bcolors
 from gps_and_oscillator.check_status import check_gps
 from network_check.network_check import check_and_update
 

@@ -14,7 +14,7 @@ Try to update the destination mac address remotely
 import os
 import sys
 sys.path.append('../')
-from python_udp_recv.params import dst_mac
+from recv_python.params import dst_mac
 
 # mac for receiving output1 and output2
 new_rec_mac = dst_mac
@@ -30,7 +30,7 @@ def restart_recv():
         print("Errors: ", errors)
     else:
         print("Restart Restart sucessfully....")
-        
+
 
 def update_mac_addr(new_mac, pn):
     # pn is 0 , 1, 2, 3
@@ -53,7 +53,7 @@ def update_mac_addr(new_mac, pn):
         print(new_rec_mac[0] + " part1: " + mac_sendin +
                 " was sucessfully Updated\n")
 
-    # update dest_mac1, mac part1 
+    # update dest_mac1, mac part1
     mac_sendin = "0x" + new_mac.replace(":", "")[0:4]
     cmd = ssh_cmd + " \"sed -i '/\\s port" + str(i) \
         + "_dst_mac1/c\\    port" + str(i) + "_dst_mac1=" + mac_sendin \
@@ -114,7 +114,7 @@ def update_all_macs():
             print(new_rec_mac[0] + " part1: " + mac_sendin +
                     " was sucessfully Updated\n")
 
-        # update dest_mac1, mac part1 
+        # update dest_mac1, mac part1
         mac_sendin = "0x" + new_mac.replace(":", "")[0:4]
         cmd = ssh_cmd + " \"sed -i '/\\s port" + str(i) \
             + "_dst_mac1/c\\    port" + str(i) + "_dst_mac1=" + mac_sendin \

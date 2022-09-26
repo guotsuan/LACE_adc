@@ -11,7 +11,7 @@ Functions of reading data recorded
 """
 
 """
-put file_num in info.h5 done
+put file_num in info.h5 donegt
 """
 
 import os
@@ -66,37 +66,38 @@ def get_data_file_list(data_dir, tot_file_num):
     return data_file_list
 
 
-data_dir ="/data/test10/"
-paras_file = os.path.join(data_dir, "params.py")
-info_file = os.path.join(data_dir, "info.h5")
-data_conf_file = os.path.join(data_dir, "data_conf.json")
+if __name__ == '__main__':
+    data_dir ="/data/test10/"
+    paras_file = os.path.join(data_dir, "params.py")
+    info_file = os.path.join(data_dir, "info.h5")
+    data_conf_file = os.path.join(data_dir, "data_conf.json")
 
-info_f = h5.File(info_file)
-tot_file_num = info_f['file_stop_num'][...]
+    info_f = h5.File(info_file)
+    tot_file_num = info_f['file_stop_num'][...]
 
-# get the file list of data files
-data_file_list = get_data_file_list(data_dir, tot_file_num)
-print(data_file_list[0:5])
+    # get the file list of data files
+    data_file_list = get_data_file_list(data_dir, tot_file_num)
+    print(data_file_list[0:5])
 
-with open(data_conf_file, 'r') as f:
-    data_conf = json.load(f)
+    with open(data_conf_file, 'r') as f:
+        data_conf = json.load(f)
 
-fft_npoint = data_conf['fft_npoint']
-n_blocks_to_save = data_conf['n_blocks_to_save']
-file_num = data_conf['file_stop_num']
-file_num = 10
-fft_data = np.empty((file_num, n_blocks_to_save, fft_npoint//2+1),
-                    dtype=np.float32)
+    fft_npoint = data_conf['fft_npoint']
+    n_blocks_to_save = data_conf['n_blocks_to_save']
+    file_num = data_conf['file_stop_num']
+    file_num = 10
+    fft_data = np.empty((file_num, n_blocks_to_save, fft_npoint//2+1),
+                        dtype=np.float32)
 
-for file_cnt, data_f in enumerate(data_file_list[0:10]):
-    print(data_f, file_cnt)
-    df = h5.File(data_f, 'r')
-    fft_data[file_cnt,...] = df['amplitude'][...]
+    for file_cnt, data_f in enumerate(data_file_list[0:10]):
+        print(data_f, file_cnt)
+        df = h5.File(data_f, 'r')
+        fft_data[file_cnt,...] = df['amplitude'][...]
 
 
-px = fft_px(data_conf)
-plt.plot(px, fft_to_dBm(fft_data[0,0,:]))
-# plt.savefig("test.pdf")
-plt.show()
+    px = fft_px(data_conf)
+    plt.plot(px, fft_to_dBm(fft_data[0,0,:]))
+    # plt.savefig("test.pdf")
+    plt.show()
 
 
