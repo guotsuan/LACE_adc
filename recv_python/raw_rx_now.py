@@ -17,8 +17,9 @@ import time
 import shutil
 import argparse
 import json
+import queue
 from concurrent import futures
-from multiprocessing import RawValue, Process, SimpleQueue
+from multiprocessing import RawValue, Process, SimpleQueue, Queue
 
 import h5py as h5
 import numpy as np
@@ -112,19 +113,20 @@ payload_buff = memoryview(udp_payload)
 data_buff = memoryview(udp_data)
 id_buff = memoryview(udp_id)
 
-v= RawValue('i', 0)
-file_q = SimpleQueue()
-v.value = 0
+# v= RawValue('i', 0)
+file_q = Queue()
 
-def move_file(file_q, v):
+def move_file(file_q):
     loop = True
     while loop:
-        file_to_move, file_dest = file_q.get()
-        if os.path.exists(file_to_move):
-            shutil.move(file_to_move, file_dest)
-            v.value -= 1
-        if v.value==0:
+        try:
+            file_to_move, file_dest = file_q.get(timeout=2.0)
+            if os.path.exists(file_to_move):
+                shutil.move(file_to_move, file_dest)
+        except queue.Empty:
+            print("All files have been moved. Terminate move_file queue...")
             loop = False
+
 
 def dumpdata_hdf5_q3(file_name, data, id_data, block_time, fout_dst, file_q):
 
@@ -173,8 +175,10 @@ if __name__ == '__main__':
     while tmp_id % warmup_size != warmup_size - 1:
         try:
             sock.recv_into(warmup_buff, payload_size)
-        except:
-            raise("Data receiving error")
+        except socket.timeout:
+            print("Socket recieving warmup data timeout...  exited...")
+            sock.close()
+            sys.exit(1)
 
         tmp_id = int.from_bytes(warmup_data[payload_size-id_size:
         payload_size], 'big')
@@ -222,7 +226,7 @@ if __name__ == '__main__':
     if not os.path.exists(mem_dir):
         os.makedirs(mem_dir )
 
-    file_move=Process(target=move_file, args=(file_q, v))
+    file_move=Process(target=move_file, args=(file_q,))
     file_move.start()
 
     json_data_conf = os.path.join(data_dir,'data_conf.json')
@@ -307,7 +311,7 @@ if __name__ == '__main__':
         #######################################################################
 
         if loop_file:
-            k = file_cnt % 20
+            k = file_cnt % loop_file_num
         else:
             k = file_cnt
 
@@ -332,7 +336,6 @@ if __name__ == '__main__':
 
             file_path_old = file_path
             tot_file_cnt += 1
-            v.value += 1
 
         else:
             print("block is dropped")

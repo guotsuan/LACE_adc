@@ -16,9 +16,19 @@ import getpass
 
 from subprocess import Popen
 
-from recv_python.params import bcolors
 from gps_and_oscillator.check_status import check_gps
 from network_check.network_check import check_and_update
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 green_ok = bcolors.OKGREEN + " .....OK." + bcolors.ENDC
 red_failed = bcolors.FAIL + " .....FAILED." + bcolors.ENDC

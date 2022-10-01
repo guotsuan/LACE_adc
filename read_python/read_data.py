@@ -19,9 +19,12 @@ import h5py as h5
 import numpy as np
 import json
 import sys
+from natsort import natsorted
 from scipy.fft import rfftfreq
 
 import matplotlib.pyplot as plt
+import glob
+import re
 
 sys.path.append("../")
 from recv_python.fft_helper import *
@@ -39,15 +42,16 @@ def fft_px(data_conf, np=None):
 def get_data_file_list(data_dir, tot_file_num):
 
     data_file_list = np.zeros(tot_file_num, dtype="|S120")
-    all_days_dir = [ x for x in os.listdir(data_dir) \
-                if os.path.isdir(os.path.join(data_dir, x)) ]
+    all_days_dir = sorted([ x for x in os.listdir(data_dir) \
+                if os.path.isdir(os.path.join(data_dir, x)) ])
     file_cnt=0
-    for day in (sorted(all_days_dir)):
+    for day in all_days_dir:
         day_dir = os.path.join(data_dir, day)
         all_hours_dir = [x for x in sorted(os.listdir(day_dir))]
         for hour in all_hours_dir:
             if os.path.isdir(os.path.join(day_dir, hour)):
-                for each_f in os.listdir(os.path.join(day_dir,hour)):
+                data_f_list = natsorted(os.listdir(os.path.join(day_dir,hour)))
+                for each_f in data_f_list:
                     f_full_name = os.path.join(os.path.join(day_dir, hour, each_f))
 
                     if os.path.isfile(f_full_name):
@@ -71,7 +75,6 @@ def get_data_file_list(data_dir, tot_file_num):
 
 def get_data(data_dir, nfft=None, power_unit='dBm'):
 
-
     paras_file = os.path.join(data_dir, "params.py")
     info_file = os.path.join(data_dir, "info.h5")
     data_conf_file = os.path.join(data_dir, "data_conf.json")
@@ -80,8 +83,9 @@ def get_data(data_dir, nfft=None, power_unit='dBm'):
 
     data_file_list = get_data_file_list(data_dir, data_conf['file_stop_num'])
 
-    if len(data_file_list) == 0:
-        raise("data file list is empty")
+    if len(data_file_list) != data_conf['file_stop_num']:
+        print(len(data_file_list), data_conf['file_stop_num'])
+        raise ValueError("data file list is empty")
 
     qt = data_conf['quantity']
     file_num = data_conf['file_stop_num']
@@ -100,7 +104,7 @@ def get_data(data_dir, nfft=None, power_unit='dBm'):
 
         px = fft_px(data_conf)
         freq_rbw = (px[1] - px[0])*1e6
-        print("freq: ", freq_rbw)
+        # print("freq: ", freq_rbw, " Hz")
         fft_data_array =fft_data.reshape(-1,fft_data.shape[-1])
         if power_unit == 'dBm':
             dbm_fft = np.mean(fft_to_dBm(fft_data_array), axis=0)
@@ -134,31 +138,33 @@ def get_data(data_dir, nfft=None, power_unit='dBm'):
                                      mean=True)
 
         dbm_fft= fft_to_dBm(fft_data)
-        return px, dbm_fft, px[1]-px[0]
+        return px, dbm_fft, (px[1]-px[0])*1e6
 
 
 
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    data_dir ="/data/raw0/"
-    px,py,rbw = get_data(data_dir,nfft=65536)
-    cc='k'
-    plt.plot(px, py, color=cc, lw=1.0,
-             label="RX with fft post-processed")
+    file_list = get_data_file_list('/data/danl', 40)
+    print(file_list)
+    # import matplotlib.pyplot as plt
+    # data_dir ="/data/raw0/"
+    # px,py,rbw = get_data(data_dir,nfft=65536)
+    # cc='k'
+    # plt.plot(px, py, color=cc, lw=1.0,
+             # label="RX with fft post-processed")
 
-    data_dir ="/data/fft_65536/"
-    # plt.axvline(peakf, color='y', alpha=0.5)
-    px,py2,rbw = get_data(data_dir)
-    cc='k'
-    plt.plot(px, py, '--', color='r', lw=0.8,
-             label="RX with fft on-the-fly")
-    plt.ylim([-100,-60])
-    plt.xlim([-1,245])
-    plt.xlabel("MHz")
-    plt.ylabel("dBm")
-    plt.title("Sanity Check")
-    plt.legend()
-    plt.show()
+    # data_dir ="/data/fft_65536/"
+    # # plt.axvline(peakf, color='y', alpha=0.5)
+    # px,py2,rbw = get_data(data_dir)
+    # cc='k'
+    # plt.plot(px, py, '--', color='r', lw=0.8,
+             # label="RX with fft on-the-fly")
+    # plt.ylim([-100,-60])
+    # plt.xlim([-1,245])
+    # plt.xlabel("MHz")
+    # plt.ylabel("dBm")
+    # plt.title("Sanity Check")
+    # plt.legend()
+    # plt.show()
 
 

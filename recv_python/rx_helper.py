@@ -18,6 +18,7 @@ import termios, fcntl
 import cupy as cp
 import torch
 import mkl_fft
+from scipy.fft import rfft,rfftfreq
 import shutil
 import logging
 import subprocess
@@ -174,6 +175,7 @@ def compute_fft_data2(data, fft_length, scale_f, quantity, mean=True):
     fft_method = ''
     if mean:
         fft_in_data = scale_f*data.reshape((-1,fft_length))
+        print("fft_in_data shape: ",fft_in_data.shape)
     else:
         fft_in_data = scale_f*data
 
@@ -203,10 +205,10 @@ def compute_fft_data2(data, fft_length, scale_f, quantity, mean=True):
     else:
         print(quantity)
         if quantity == 'amplitude':
-            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
+            mean_fft_result =np.abs(rfft(fft_in_data))
             # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
         elif quantity == 'power':
-            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
+            mean_fft_result =np.abs(rfft(fft_in_data))**2
             # mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2
 
         if mean:

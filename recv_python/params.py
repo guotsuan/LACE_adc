@@ -74,6 +74,10 @@ if 'raw_rx' in sys.argv[0]:
 
     output_sel = args.port
     data_dir = args.directory_to_save
+    data_conf['fft_npoint'] = args.fft_npoint
+else:
+    data_conf['fft_npoint'] = 65536
+
 
 print(" ")
 print("-"*80)
@@ -123,6 +127,7 @@ else:
 
 
 loop_file= True
+loop_file_num = 40
 fft_method = 'numpy'
 # max_workers = 8
 # use data_conf to group all the parameters
@@ -135,7 +140,6 @@ data_conf['save_lost'] = False
 
 
 data_conf['voltage_scale_f'] = 0.5/2**15
-data_conf['fft_npoint'] = args.fft_npoint
 data_conf['avg_n'] = 8
 sample_rate_over_1000 = 480000
 
@@ -186,7 +190,12 @@ else:
 # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
 # few files
 # run_forever = True
-data_conf['file_stop_num'] = 2
+data_conf['file_stop_num'] = 40
+if loop_file:
+    if data_conf['file_stop_num'] > loop_file_num:
+        raise ValueError('file stop num greater than loop file \
+                         num...Please check again')
+
 
 # default by hour
 data_conf['split_by_min'] = False
