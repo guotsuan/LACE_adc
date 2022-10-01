@@ -200,7 +200,7 @@ def dumpdata_hdf5_fft_q6(data_dir, data, id_data):
         else:
             k = file_cnt
 
-        file_path = data_file_prefix(data_dir, block_time)
+        file_path = data_file_prefix(data_dir, block_time, data_conf)
         fout = os.path.join(file_path, labels[output_sel] +
                 '_' + str(k))
 
@@ -306,10 +306,11 @@ if __name__ == '__main__':
     data_conf['id_tail_before'] = id_tail_before
     data_conf['t0_time'] = t0_time
     start_id = id_tail_before
-    save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time, id_tail_before)
+    save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time, id_tail_before,
+                   data_conf)
     # Saveing parameters
     shutil.copy('./params.py', data_dir)
-    file_path_old = data_file_prefix(data_dir, t0_time)
+    file_path_old = data_file_prefix(data_dir, t0_time, data_conf)
 
     executor = futures.ThreadPoolExecutor(max_workers=1)
 

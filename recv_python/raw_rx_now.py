@@ -100,7 +100,7 @@ if err:
     sock.close()
     raise ValueError("set socket error")
 
-print("Receiving IP and Port: ", udp_ip, udp_port, "Binding...")
+print("Receiving IP and Port: ", udp_ip, udp_port, "Binding..."+green_ok)
 sock.bind((udp_ip, udp_port))
 
 
@@ -122,7 +122,8 @@ def move_file(file_q, v):
         file_to_move, file_dest = file_q.get()
         if os.path.exists(file_to_move):
             shutil.move(file_to_move, file_dest)
-        if v.value == 1:
+            v.value -= 1
+        if v.value==0:
             loop = False
 
 def dumpdata_hdf5_q3(file_name, data, id_data, block_time, fout_dst, file_q):
@@ -208,10 +209,12 @@ if __name__ == '__main__':
     time_last = time.perf_counter()
 
     # FIXME: how to save time xxxxxx.xxxx properly
-    save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time, id_tail_before)
+    save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time,
+                   id_tail_before,
+                   data_conf)
     # Saveing parameters
     shutil.copy('./params.py', data_dir)
-    file_path_old = data_file_prefix(data_dir, t0_time)
+    file_path_old = data_file_prefix(data_dir, t0_time, data_conf)
 
     executor = futures.ThreadPoolExecutor(max_workers=1)
 
@@ -310,7 +313,7 @@ if __name__ == '__main__':
 
 
         if no_lost:
-            file_path = data_file_prefix(data_dir, block_time)
+            file_path = data_file_prefix(data_dir, block_time, data_conf)
             fout = os.path.join(file_path, labels[output_sel] +
                     '_' + str(k))
 
@@ -322,14 +325,6 @@ if __name__ == '__main__':
                     id_arr, block_time_str, fout,
                                     file_q)
 
-            # writefile=executor.submit(dumpdata_savez,
-                    # mem_fout,
-                    # udp_payload_arr,
-                    # id_arr,
-                    # block_time)
-
-                # pstart = True
-
             if file_path == file_path_old:
                 file_cnt += 1
             else:
@@ -337,9 +332,11 @@ if __name__ == '__main__':
 
             file_path_old = file_path
             tot_file_cnt += 1
+            v.value += 1
 
         else:
             print("block is dropped")
+            logging.warning("block is dropped")
 
 
 
@@ -359,9 +356,8 @@ if __name__ == '__main__':
 
         time_before = time_now
 
-        if (file_stop_num > 0) and (file_cnt >= file_stop_num) :
+        if (file_stop_num > 0) and (tot_file_cnt >= file_stop_num) :
             forever = False
-            v.value = 1
 
         i += 1
 

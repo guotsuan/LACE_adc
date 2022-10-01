@@ -25,7 +25,6 @@ from multiprocessing import shared_memory
 
 import cupyx.scipy.fft as cufft
 
-from params import data_conf,labels, loop_file ,fft_method
 
 sys.path.append('../')
 from gps_and_oscillator.check_status import get_gps_coord
@@ -55,7 +54,7 @@ def read_temp(sock):
     return temp_ps, temp_pl
 
 
-def save_meta_file(fname, stime, s_id):
+def save_meta_file(fname, stime, s_id, data_conf):
     ff = h5.File(fname, 'w')
     str_stime = epoctime2date(stime)
     ff.create_dataset('start_time', data=str_stime, dtype='S30')
@@ -120,7 +119,7 @@ def prepare_folder(indir):
         os.mkdir(indir)
 
 
-def data_file_prefix(indir, stime, unpack=False):
+def data_file_prefix(indir, stime, data_conf, unpack=False):
 
     if type(stime) != datetime.datetime:
         if isinstance(stime, float):
@@ -171,10 +170,10 @@ def set_noblocking_keyboard():
     oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
-def compute_fft_data2(data, avg_n, fft_length, scale_f, quantity, mean=True):
-    fft_method = 'cupy'
+def compute_fft_data2(data, fft_length, scale_f, quantity, mean=True):
+    fft_method = ''
     if mean:
-        fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
+        fft_in_data = scale_f*data.reshape((-1,fft_length))
     else:
         fft_in_data = scale_f*data
 
@@ -186,7 +185,7 @@ def compute_fft_data2(data, avg_n, fft_length, scale_f, quantity, mean=True):
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2,
 
         if mean:
-            mean_fft_result = np.mean(mean_fft_result, axis=1)
+            mean_fft_result = np.mean(mean_fft_result, axis=0)
 
     elif fft_method == 'pytorch':
         device = torch.device('cuda')
@@ -200,8 +199,9 @@ def compute_fft_data2(data, avg_n, fft_length, scale_f, quantity, mean=True):
                 dim=-1).detach().cpu().numpy())**2
 
         if mean:
-            mean_fft_result = np.mean(mean_fft_result, axis=1)
+            mean_fft_result = np.mean(mean_fft_result, axis=0)
     else:
+        print(quantity)
         if quantity == 'amplitude':
             mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
             # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
@@ -210,11 +210,11 @@ def compute_fft_data2(data, avg_n, fft_length, scale_f, quantity, mean=True):
             # mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2
 
         if mean:
-            mean_fft_result = np.mean(mean_fft_result, axis=1)
+            mean_fft_result = np.mean(mean_fft_result, axis=0)
 
     return mean_fft_result
 
-def compute_fft_data_only(fft_in_data):
+def compute_fft_data_only(fft_in_data, fft_method):
 
     # fft_in_data = fft_in_data[i,...].reshape(-1, fft_length)
 
@@ -315,97 +315,6 @@ def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
     else:
         np.save(file_name +'.npy', data)
 
-def save_raw_hdf5(data_dir, raw_data_to_file, raw_block_time_file,
-        raw_id_to_file, nn, rx):
-
-    # print("save raw pid: ", os.getpid())
-    file_path_old = ''
-
-    n_frames_per_loop = data_conf['n_frames_per_loop']
-    data_size = data_conf['data_size']
-    n_blocks_to_save  = data_conf['n_blocks_to_save']
-    quantity = data_conf['quantity']
-    output_sel = data_conf['output_sel']
-    file_stop_num = data_conf['file_stop_num']
-    block_time = raw_block_time_file
-
-    loop = True
-    file_cnt = 0
-
-    idx = nn.value
-
-    while loop:
-        if nn.value != idx:
-            idx = nn.value
-            file_path = data_file_prefix(data_dir, block_time)
-            if file_path_old =='':
-                file_path_old = file_path
-            fout = os.path.join(file_path, labels[output_sel] +
-                    '_' + str(file_cnt))
-
-            print("nn: ", nn.value)
-
-            f=h5.File(fout +'.h5','a')
-
-            if idx == 1:
-                maxshape = (n_blocks_to_save, n_frames_per_loop*data_size//2,)
-                dset = f.create_dataset(quantity,
-                        data=np.atleast_2d(raw_data_to_file),
-                        maxshape=maxshape)
-                maxshape = (n_blocks_to_save,)
-                dset = f.create_dataset('block_time',
-                        data=np.atleast_1d(np.asarray(raw_block_time_file, dtype='S30')),
-                        maxshape=maxshape)
-                maxshape = (n_blocks_to_save,n_frames_per_loop,)
-                dset = f.create_dataset('block_ids',
-                        data=np.atleast_2d(raw_id_to_file),
-                        maxshape=maxshape)
-            else:
-                oldshape = f[quantity].shape
-                newshape = (idx, oldshape[1])
-                # print('New shape: ', newshape)
-
-                f[quantity].resize(newshape)
-                f[quantity][idx-1,...]=raw_data_to_file
-
-                newshape = (idx,)
-                f['block_time'].resize(newshape)
-                f['block_time'][idx-1]=raw_block_time_file
-
-                oldshape = f['block_ids'].shape
-                newshape = (idx, oldshape[1])
-                f['block_ids'].resize(newshape)
-                f['block_ids'][idx-1,...]=raw_id_to_file
-
-
-            if idx == n_blocks_to_save:
-                f.close()
-
-                if file_path == file_path_old:
-                    file_cnt += 1
-                else:
-                    file_cnt = 0
-
-                file_path_old = file_path
-
-
-            if file_stop_num < 0 or file_cnt <= file_stop_num:
-                loop = True
-            else:
-                loop = False
-                print("save fft loop ended")
-
-
-        # if quantity not in f:
-            # maxshape = (n_save*n_fft_blocks_per_loop, fft_length//2+1)
-            # dset = f.create_dataset(quantity, data=mean_fft_result,
-                    # maxshape=maxshape)
-            # # dset.attrs['start_time'] = stime
-            # # dset.attrs['block_time'] = t1
-            # dset.attrs['avg_n'] = avg_n
-            # dset.attrs['fft_length'] =  fft_length
-            # f.close()
-        # else:
 
 def dumpdata_savez(file_name, data, id_data, block_time):
     np.savez(file_name, power=data,

@@ -25,6 +25,22 @@ import sys
 
 # do not change
 # raw1, fft1, raw2, fft2
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+green_ok = bcolors.OKGREEN + " .....OK." + bcolors.ENDC
+green_fft_data = bcolors.OKGREEN + "FFT data" + bcolors.ENDC
+green_raw_data = bcolors.FAIL + "raw data" + bcolors.ENDC
+
+
 labels = ["RAW_output1", "FFT_output1", "RAW_output2", "FFT_output2"]
 src_ip = ["192.168.90.20", "192.168.90.21", "192.168.90.30", "192.168.90.31"]
 src_port = [59000, 59001, 59000, 59001]
@@ -39,24 +55,25 @@ def is_nic_up(nic):
     return netifaces.AF_INET in addr
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("port",
-                    choices=[0,1,2,3],
-                    help="the port number of the input that you want to  observe",
-                    type=int)
-parser.add_argument("directory_to_save",
-                    help="the path of directory to save the data")
+if 'raw_rx' in sys.argv[0]:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("port",
+                        choices=[0,1,2,3],
+                        help="the port number of the input that you want to  observe",
+                        type=int)
+    parser.add_argument("directory_to_save",
+                        help="the path of directory to save the data")
 
-parser.add_argument("--fft_npoint",
-                    type=int,
-                    default = 65536,
-                    help="the number of fft points")
+    parser.add_argument("--fft_npoint",
+                        type=int,
+                        default = 65536,
+                        help="the number of fft points")
 
-args = parser.parse_args()
+    args = parser.parse_args()
 
 
-output_sel = args.port
-data_dir = args.directory_to_save
+    output_sel = args.port
+    data_dir = args.directory_to_save
 
 print(" ")
 print("-"*80)
@@ -97,10 +114,10 @@ data_conf['output_fft'] = True
 
 if 'fft' in sys.argv[0]:
     data_conf['output_fft'] = True
-    print("output FFT is True")
+    print("output ",  green_fft_data)
 else:
     data_conf['output_fft'] = False
-    print("output FFT is False")
+    print("output ",  green_raw_data)
 
 
 
@@ -130,7 +147,7 @@ else:
     # How many udp packets of data received in one read loop
     data_conf['n_frames_per_loop'] = 8192*2
     # how many raw data read loops accumulated then save
-    data_conf['n_blocks_to_save']  =1024
+    data_conf['n_blocks_to_save']  =1024*2
     data_conf['quantity'] = 'voltage'
 
 ###########################################################################
@@ -174,12 +191,16 @@ data_conf['file_stop_num'] = 2
 # default by hour
 data_conf['split_by_min'] = False
 
-print("Each fft block has:",
-      data_conf['fft_npoint'], " points")
-print("Each processing loop have",
-      data_conf['n_fft_blocks_per_loop'], "fft blocks")
-print(f"The average time of fft spectrum is {data_conf['avg_time']:.3f}",
-      "ms and ", data_conf['avg_n'], " times.")
+if data_conf['output_fft']:
+    print("Each fft block has:", data_conf['fft_npoint'],
+        f" points with resolution: {480000/data_conf['fft_npoint']:.3f} kHz")
+    print("Each processing loop have",
+        data_conf['n_fft_blocks_per_loop'], "fft blocks")
+    print(f"The average time of fft spectrum is {data_conf['avg_time']:.3f}",
+        "ms and ", data_conf['avg_n'], " times.")
+else:
+    print("Each file has ", data_conf['n_blocks_to_save'], " data frames")
+
 if data_conf['file_stop_num'] < 0:
     print("The Program will run forever")
 else:
@@ -187,15 +208,3 @@ else:
           data_conf['file_stop_num'], " files")
 
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-green_ok = bcolors.OKGREEN + " .....OK." + bcolors.ENDC
