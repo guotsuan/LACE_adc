@@ -127,6 +127,23 @@ def move_file(file_q):
             print("All files have been moved. Terminate move_file queue...")
             loop = False
 
+def dumpdata_hdf5_q4(file_name, data, id_data, block_time):
+
+    # voltage_scale_f = 0.5/2**15
+    quantity = data_conf['quantity']
+
+    f=h5.File(file_name +'.h5','w')
+    dset = f.create_dataset(quantity, data=data)
+    temp_ps, temp_pl = read_temp(sock_temp)
+    dset.attrs['temp_ps'] = temp_ps
+    dset.attrs['temp_pl'] = temp_pl
+
+    dset = f.create_dataset('block_time', data=block_time)
+    dset = f.create_dataset('block_ids', data=id_data)
+
+    f.close()
+
+    return
 
 def dumpdata_hdf5_q3(file_name, data, id_data, block_time, fout_dst, file_q):
 
@@ -226,8 +243,8 @@ if __name__ == '__main__':
     if not os.path.exists(mem_dir):
         os.makedirs(mem_dir )
 
-    file_move=Process(target=move_file, args=(file_q,))
-    file_move.start()
+    # file_move=Process(target=move_file, args=(file_q,))
+    # file_move.start()
 
     json_data_conf = os.path.join(data_dir,'data_conf.json')
     with open(json_data_conf, 'w') as f:
@@ -238,134 +255,144 @@ if __name__ == '__main__':
     print("Time of single loop     Total lost packets    Elapsed time   Speed \
            Num of saved file\n")
 
-    while forever:
-        if file_stop_num < 0:
-            try:
-                c = sys.stdin.read(1)
-                if c =='x':
-                    print("program will stop on given order")
-                    forever = False
-            except IOError: pass
+    try:
+        while forever:
+            if file_stop_num < 0:
+                try:
+                    c = sys.stdin.read(1)
+                    if c =='x':
+                        print("program will stop on given order")
+                        forever = False
+                except IOError: pass
 
-        pi1 = 0
-        pi2 = data_size
+            pi1 = 0
+            pi2 = data_size
 
-        hi1 = 0
-        hi2 = id_size
+            hi1 = 0
+            hi2 = id_size
 
-        count_down = n_frames_per_loop
-        payload_buff = payload_buff_head
-        block_time1 = time.time()
+            count_down = n_frames_per_loop
+            payload_buff = payload_buff_head
+            block_time1 = time.time()
 
-        while count_down:
-            sock.recv_into(payload_buff, payload_size)
-            data_buff[pi1:pi2] = payload_buff[0:data_size]
-            id_buff[hi1:hi2] = payload_buff[payload_size - id_size:payload_size]
+            while count_down:
+                sock.recv_into(payload_buff, payload_size)
+                data_buff[pi1:pi2] = payload_buff[0:data_size]
+                id_buff[hi1:hi2] = payload_buff[payload_size - id_size:payload_size]
 
-            pi1 += data_size
-            pi2 += data_size
-            hi1 += id_size
-            hi2 += id_size
+                pi1 += data_size
+                pi2 += data_size
+                hi1 += id_size
+                hi2 += id_size
 
-            count_down -= 1
+                count_down -= 1
 
-        block_time2 = time.time()
-        id_arr = np.uint32(np.frombuffer(udp_id,dtype='>u4'))
+            block_time2 = time.time()
+            id_arr = np.uint32(np.frombuffer(udp_id,dtype='>u4'))
 
-        diff = id_arr[0] - id_tail_before
-        if (diff == 1) or (diff == - cycle ):
-            pass
-        else:
-            print("block is not connected", id_tail_before, id_arr[0])
-            print("program last ", time.time() - s_time)
-            num_lost_all += 1
-            # raise ValueError("block is not connected")
+            diff = id_arr[0] - id_tail_before
+            if (diff == 1) or (diff == - cycle ):
+                pass
+            else:
+                print("block is not connected", id_tail_before, id_arr[0])
+                print("program last ", time.time() - s_time)
+                num_lost_all += 1
+                # raise ValueError("block is not connected")
 
-        # update the ids before for next section
-        id_head_before = id_arr[0]
-        id_tail_before = id_arr[-1]
+            # update the ids before for next section
+            id_head_before = id_arr[0]
+            id_tail_before = id_arr[-1]
 
-        udp_payload_arr = np.frombuffer(udp_data, dtype=data_type)
-        id_offsets = np.diff(id_arr) % cycle
+            udp_payload_arr = np.frombuffer(udp_data, dtype=data_type)
+            id_offsets = np.diff(id_arr) % cycle
 
 
-        idx = id_offsets > 1
+            idx = id_offsets > 1
 
-        num_lost_p = len(id_offsets[idx])
-        block_time = (block_time1 + block_time2)/2.
-        if (num_lost_p > 0):
-            if data_conf['save_lost']:
+            num_lost_p = len(id_offsets[idx])
+            block_time = (block_time1 + block_time2)/2.
+            if (num_lost_p > 0):
+                if data_conf['save_lost']:
+                    no_lost = True
+                else:
+                    no_lost = False
+
+                bad=np.arange(id_offsets.size)[idx][0]
+                print(id_arr[bad-1:bad+2])
+                num_lost_all += num_lost_p
+            else:
                 no_lost = True
+
+
+            #######################################################################
+            #                            saving data                              #
+            #######################################################################
+
+            if loop_file:
+                k = file_cnt % loop_file_num
             else:
-                no_lost = False
-
-            bad=np.arange(id_offsets.size)[idx][0]
-            print(id_arr[bad-1:bad+2])
-            num_lost_all += num_lost_p
-        else:
-            no_lost = True
+                k = file_cnt
 
 
-        #######################################################################
-        #                            saving data                              #
-        #######################################################################
+            if no_lost:
+                file_path = data_file_prefix(data_dir, block_time, data_conf)
+                fout = os.path.join(file_path, labels[output_sel] +
+                        '_' + str(k))
 
-        if loop_file:
-            k = file_cnt % loop_file_num
-        else:
-            k = file_cnt
+                mem_fout = os.path.join(mem_dir, file_prefix +
+                        '_' + str(k))
 
+                block_time_str = epoctime2date(block_time)
 
-        if no_lost:
-            file_path = data_file_prefix(data_dir, block_time, data_conf)
-            fout = os.path.join(file_path, labels[output_sel] +
-                    '_' + str(k))
+                wfile = executor.submit(dumpdata_hdf5_q4, fout, udp_payload_arr,
+                        id_arr, block_time_str)
 
-            mem_fout = os.path.join(mem_dir, file_prefix +
-                    '_' + str(k))
+                # wfile = executor.submit(dumpdata_hdf5_q3, mem_fout, udp_payload_arr,
+                        # id_arr, block_time_str, fout,
+                                        # file_q)
 
-            block_time_str = epoctime2date(block_time)
-            wfile = executor.submit(dumpdata_hdf5_q3, mem_fout, udp_payload_arr,
-                    id_arr, block_time_str, fout,
-                                    file_q)
+                if file_path == file_path_old:
+                    file_cnt += 1
+                else:
+                    file_cnt = 0
 
-            if file_path == file_path_old:
-                file_cnt += 1
+                file_path_old = file_path
+                tot_file_cnt += 1
+
             else:
-                file_cnt = 0
-
-            file_path_old = file_path
-            tot_file_cnt += 1
-
-        else:
-            print("block is dropped")
-            logging.warning("block is dropped")
+                print("block is dropped")
+                logging.warning("block is dropped")
 
 
 
-        #######################################################################
-        #                           information out                           #
-        #######################################################################
-        time_now = time.perf_counter()
+            #######################################################################
+            #                           information out                           #
+            #######################################################################
+            time_now = time.perf_counter()
 
-        if time_now - time_last > 10.0:
+            if time_now - time_last > 10.0:
 
-            time_last = time.perf_counter()
-            # display_metrics(time_before, time_now, s_time, num_lost_all,
-                    # data_conf)
-            display_metrics(time_before, time_now, s_time, num_lost_all,
-                    data_conf, tot_file_cnt=tot_file_cnt)
-            i = 0
+                time_last = time.perf_counter()
+                # display_metrics(time_before, time_now, s_time, num_lost_all,
+                        # data_conf)
+                display_metrics(time_before, time_now, s_time, num_lost_all,
+                        data_conf, tot_file_cnt=tot_file_cnt)
+                i = 0
 
-        time_before = time_now
+            time_before = time_now
 
-        if (file_stop_num > 0) and (tot_file_cnt >= file_stop_num) :
-            forever = False
+            if (file_stop_num > 0) and (tot_file_cnt >= file_stop_num) :
+                forever = False
 
-        i += 1
+            i += 1
 
-    print("Process save fft ended")
-    logging.warning("Process save fft ended")
-    file_move.join()
-    sock.close()
+        print("Process save fft ended")
+        executor.shutdown(wait=False, cancel_futures=True)
+        logging.warning("Process save fft ended")
+        # file_move.join()
+        sock.close()
+
+    except KeyboardInterrupt:
+        executor.shutdown(wait=False, cancel_futures=True)
+        sock.close()
 

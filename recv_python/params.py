@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 # vim:fenc=utf-8
 #
-# Copyright ÃÂÃÂ© 2021 gq <gq@gqhp>
+# Author: Quan Guo <guoquan@shao.ac.cn>
 #
 # Distributed under terms of the MIT license.
 
 """
-the parameters for recv.py
+Prepare the parameters for RX
 """
 import platform as pf
 import netifaces
@@ -15,16 +15,7 @@ import argparse
 import os
 import sys
 
-# Neworking settings for reciever and data storage
 
-###########################
-#  Output 1 and Output 2  #
-###########################
-
-# the order of the lists is "RAW1, FFT1, RAW2, FFT2"
-
-# do not change
-# raw1, fft1, raw2, fft2
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -36,10 +27,21 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+
+def is_nic_up(nic):
+    addr = netifaces.ifaddresses(nic)
+    return netifaces.AF_INET in addr
+
+
 green_ok = bcolors.OKGREEN + " .....OK." + bcolors.ENDC
 green_fft_data = bcolors.OKGREEN + "FFT data" + bcolors.ENDC
 green_raw_data = bcolors.FAIL + "raw data" + bcolors.ENDC
 
+# the order of the lists is "RAW1, FFT1, RAW2, FFT2"
+# do not change
+# raw1, fft1, raw2, fft2
+# dst_ip = ["192.168.90.100", "192.168.90.101",
+#           "192.168.90.100", "192.168.90.111"]
 
 labels = ["RAW_output1", "FFT_output1", "RAW_output2", "FFT_output2"]
 src_ip = ["192.168.90.20", "192.168.90.21", "192.168.90.30", "192.168.90.31"]
@@ -48,39 +50,6 @@ dst_port = [60000, 60001, 60000, 60001]
 dst_mac = []
 dst_ip = []
 data_conf = {}
-# dst_ip = ["192.168.90.100", "192.168.90.101", "192.168.90.100", "192.168.90.111"]
-
-def is_nic_up(nic):
-    addr = netifaces.ifaddresses(nic)
-    return netifaces.AF_INET in addr
-
-
-if 'raw_rx' in sys.argv[0]:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("port",
-                        choices=[0,1,2,3],
-                        help="the port number of the input that you want to  observe",
-                        type=int)
-    parser.add_argument("directory_to_save",
-                        help="the path of directory to save the data")
-
-    parser.add_argument("--fft_npoint",
-                        type=int,
-                        default = 65536,
-                        help="the number of fft points")
-
-    args = parser.parse_args()
-
-
-    output_sel = args.port
-    data_dir = args.directory_to_save
-    data_conf['fft_npoint'] = args.fft_npoint
-else:
-    data_conf['fft_npoint'] = 65536
-
-
-print(" ")
-print("-"*80)
 
 platform_system = pf.system()
 if 'Darwin' in platform_system:
@@ -88,15 +57,14 @@ if 'Darwin' in platform_system:
 else:
     node_name = pf.node()
     if node_name == 'lacebian1':
-        # network_faces = ["ens1f1", "", "enp14s0", ""]
-        #network_faces = ["ens1f1", "", "", ""]
-        network_faces = ["enp10s0","", "",""]
-
-        #network_faces = ["enp10s0", "enp10s0","enp10s0f1", "enp10s0f1"]
+        # network_faces = ["enp10s0", "enp10s0", "enp10s0f1", "enp10s0f1"]
+        network_faces = ["enp10s0", "", "", ""]
     elif node_name == "gqhp":
-        network_faces = ["enp153s0f0", "enp153s0f0", "enp153s0f1", "enp153s0f1"]
+        network_faces = ["enp153s0f0", "enp153s0f0", "enp153s0f1",
+                         "enp153s0f1"]
     else:
-       network_faces = ["enp119s0f0", "enp119s0f0","enp119s0f1", "enp119s0f1"]
+        network_faces = ["enp119s0f0", "enp119s0f0", "enp119s0f1",
+                         "enp119s0f1"]
 
 for nic in network_faces:
     if nic =='':
@@ -114,106 +82,138 @@ for nic in network_faces:
         dst_mac.append(addrs[netifaces.AF_LINK][0]['addr'])
         dst_ip.append(addrs[netifaces.AF_INET][0]['addr'])
 
-data_conf['output_fft'] = True
 
-if 'fft' in sys.argv[0]:
-    data_conf['output_fft'] = True
-    print("output ",  green_fft_data)
-else:
-    data_conf['output_fft'] = False
-    print("output ",  green_raw_data)
+if 'raw_rx' in sys.argv[0]:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("port",
+                        choices=[0,1,2,3],
+                        help="the port number of the input that you want to  observe",
+                        type=int)
+    parser.add_argument("directory_to_save",
+                        help="the path of directory to save the data")
 
+    parser.add_argument("--fft_npoint",
+                        type=int,
+                        default = 65536,
+                        help="the number of fft points")
 
+    parser.add_argument("--f_num",
+                        type=int,
+                        default = 20,
+                        help="the number of files saved before stop")
 
-
-loop_file= True
-loop_file_num = 40
-fft_method = 'numpy'
-# max_workers = 8
-# use data_conf to group all the parameters
-data_conf['node_name'] = node_name
-data_conf['network_faces'] = network_faces
-data_conf['sample_rate'] = 480e6
-data_conf['data_size'] = 8192
-data_conf['save_hdf5'] = True
-data_conf['save_lost'] = False
+    args = parser.parse_args()
 
 
-data_conf['voltage_scale_f'] = 0.5/2**15
-data_conf['avg_n'] = 8
-sample_rate_over_1000 = 480000
+    output_sel = args.port
+    data_dir = args.directory_to_save
+    data_conf['fft_npoint'] = args.fft_npoint
+    data_conf['file_stop_num'] = args.f_num
 
-if data_conf['output_fft']:
-    data_conf['n_frames_per_loop'] = 8192*2
-    data_conf['n_blocks_to_save']  = 1024
-    data_conf['quantity'] = 'amplitude'
-else:
+    print(" ")
+    print("-"*80)
+
+    if 'fft' in sys.argv[0]:
+        data_conf['output_fft'] = True
+        print("output ",  green_fft_data)
+    else:
+        data_conf['output_fft'] = False
+        print("output ",  green_raw_data)
+
+
+    loop_file= False
+    loop_file_num = 500
+    fft_method = 'numpy'
+    # max_workers = 8
+    # use data_conf to group all the parameters
+    data_conf['node_name'] = node_name
+    data_conf['network_faces'] = network_faces
+    data_conf['sample_rate'] = 480e6
+    data_conf['data_size'] = 8192
+    data_conf['save_hdf5'] = True
+    data_conf['save_lost'] = False
+
+
+    data_conf['voltage_scale_f'] = 0.5/2**15
+    data_conf['avg_n'] = 8
+    sample_rate_over_1000 = data_conf['sample_rate']/1000
+
+    if data_conf['output_fft']:
+        data_conf['n_frames_per_loop'] = 8192*2
+        data_conf['n_blocks_to_save']  = 1024
+        data_conf['quantity'] = 'amplitude'
+    else:
+        # How many udp packets of data received in one read loop
+        data_conf['n_frames_per_loop'] = 8192
+        # how many raw data read loops accumulated then save
+        # useless in non-fft mode
+        data_conf['n_blocks_to_save']  =1024
+        data_conf['quantity'] = 'voltage'
+
+    ###########################################################################
+    #                 parameters for save the fft of raw data                 #
+    ###########################################################################
+
+    # the average time of spectrum
+    # data_conf['avg_time'] = 1.0   #ms
+    fft_single_time = data_conf['fft_npoint'] / sample_rate_over_1000
+    data_conf['fft_single_time'] = fft_single_time
+    data_conf['avg_time'] = data_conf['avg_n']*fft_single_time
+
     # How many udp packets of data received in one read loop
-    data_conf['n_frames_per_loop'] = 8192*2
-    # how many raw data read loops accumulated then save
-    data_conf['n_blocks_to_save']  =1024*2
-    data_conf['quantity'] = 'voltage'
-
-###########################################################################
-#                 parameters for save the fft of raw data                 #
-###########################################################################
-
-# the average time of spectrum
-# data_conf['avg_time'] = 1.0   #ms
-fft_single_time = data_conf['fft_npoint'] / sample_rate_over_1000
-data_conf['fft_single_time'] = fft_single_time
-data_conf['avg_time'] = data_conf['avg_n']*fft_single_time
-
-# How many udp packets of data received in one read loop
 
 
-# every *fft_npoint* will be grouped for FFT
-# how many fft groups in one read loop
-data_conf['n_fft_blocks_per_loop'] = \
-        int(data_conf['data_size']* \
-            data_conf['n_frames_per_loop']/data_conf['fft_npoint']/2)
+    # every *fft_npoint* will be grouped for FFT
+    # how many fft groups in one read loop
+    data_conf['n_fft_blocks_per_loop'] = \
+            int(data_conf['data_size']* \
+                data_conf['n_frames_per_loop']/data_conf['fft_npoint']/2)
 
-# how many averageed fft groups in one read loop
-data_conf['n_avg_fft_blocks_per_loop'] = \
-        data_conf['n_fft_blocks_per_loop'] // data_conf['avg_n']
+    # how many averageed fft groups in one read loop
+    data_conf['n_avg_fft_blocks_per_loop'] = \
+            data_conf['n_fft_blocks_per_loop'] // data_conf['avg_n']
 
 
-# the size of socket buffer for recieving data
-# maximum is 1610612736
-if 'Darwin' in platform_system:
-    rx_buffer = 7168000
+    # the size of socket buffer for recieving data
+    # maximum is 1610612736
+    if 'Darwin' in platform_system:
+        rx_buffer = 7168000
+    else:
+        rx_buffer = 1610612736
+        # rx_buffer = 100000000
+
+
+    if loop_file:
+        if data_conf['file_stop_num'] > loop_file_num:
+            raise ValueError('file stop num greater than loop file num...Please check again')
+
+
+    # default by hour
+    data_conf['split_by_min'] = False
+
+    if data_conf['output_fft']:
+        print("Each fft block has:", data_conf['fft_npoint'],
+            f" points with resolution: {480000/data_conf['fft_npoint']:.3f} kHz")
+        print("Each processing loop have",
+            data_conf['n_fft_blocks_per_loop'], "fft blocks")
+        print(f"The average time of fft spectrum is {data_conf['avg_time']:.3f}",
+            "ms and ", data_conf['avg_n'], " times.")
+    else:
+        print("Each file has ", data_conf['n_blocks_to_save'], " data frames")
+
+    if data_conf['file_stop_num'] < 0:
+        print("The Program will run forever")
+    else:
+        print("The Program will stop after saving ",
+            data_conf['file_stop_num'], " files")
+
 else:
-    rx_buffer = 1610612736
-    # rx_buffer = 100000000
+    data_conf['fft_npoint'] = 65536
+    # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
+    # few files
+    # run_forever = True
+    data_conf['file_stop_num'] = 400
 
 
-# the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
-# few files
-# run_forever = True
-data_conf['file_stop_num'] = 40
-if loop_file:
-    if data_conf['file_stop_num'] > loop_file_num:
-        raise ValueError('file stop num greater than loop file \
-                         num...Please check again')
-
-
-# default by hour
-data_conf['split_by_min'] = False
-
-if data_conf['output_fft']:
-    print("Each fft block has:", data_conf['fft_npoint'],
-        f" points with resolution: {480000/data_conf['fft_npoint']:.3f} kHz")
-    print("Each processing loop have",
-        data_conf['n_fft_blocks_per_loop'], "fft blocks")
-    print(f"The average time of fft spectrum is {data_conf['avg_time']:.3f}",
-        "ms and ", data_conf['avg_n'], " times.")
-else:
-    print("Each file has ", data_conf['n_blocks_to_save'], " data frames")
-
-if data_conf['file_stop_num'] < 0:
-    print("The Program will run forever")
-else:
-    print("The Program will stop after saving ",
-          data_conf['file_stop_num'], " files")
 
 
