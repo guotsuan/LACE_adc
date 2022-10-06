@@ -195,8 +195,8 @@ def dumpdata_hdf5_fft_q6(data_dir, data, id_data):
 
     if i2 == n_blocks_to_save:
         nn = 0
-        if loop_file:
-            k = file_cnt % 20
+        if data_conf['loop_file']:
+            k = file_cnt % data_conf['loop_file_num']
         else:
             k = file_cnt
 

@@ -67,7 +67,7 @@ else:
                          "enp119s0f1"]
 
 for nic in network_faces:
-    if nic =='':
+    if nic == '':
         dst_mac.append("")
         dst_ip.append("")
     else:
@@ -86,29 +86,56 @@ for nic in network_faces:
 if 'raw_rx' in sys.argv[0]:
     parser = argparse.ArgumentParser()
     parser.add_argument("port",
-                        choices=[0,1,2,3],
-                        help="the port number of the input that you want to  observe",
+                        choices=[0, 1, 2, 3],
+                        help="the port number of the input that you \
+                              want to observe",
                         type=int)
     parser.add_argument("directory_to_save",
                         help="the path of directory to save the data")
 
     parser.add_argument("--fft_npoint",
                         type=int,
-                        default = 65536,
+                        default=65536,
                         help="the number of fft points")
 
     parser.add_argument("--f_num",
                         type=int,
-                        default = 20,
+                        default=20,
                         help="the number of files saved before stop")
 
     args = parser.parse_args()
 
-
     output_sel = args.port
-    data_dir = args.directory_to_save
+    data_conf['data_dir'] = args.directory_to_save
+
+    # the size of socket buffer for recieving data, maximum is 1610612736
+    if 'Darwin' in platform_system:
+        rx_buffer = 7168000
+    else:
+        rx_buffer = 1610612736
+
+###############################################################################
+#                       The default values of data_conf                       #
+###############################################################################
+
+    # the number of fft which will determine the RBW
     data_conf['fft_npoint'] = args.fft_npoint
+    # the rx program runing forever ? file_stop_num < 0 or it will stop
+    # after saving file_stop_num files
+    # run_forever = True
     data_conf['file_stop_num'] = args.f_num
+    # default by hour
+    data_conf['split_by_min'] = False
+    data_conf['loop_file'] = False
+    data_conf['loop_file_num'] = 500
+    data_conf['node_name'] = node_name
+    data_conf['network_faces'] = network_faces
+    data_conf['sample_rate'] = 480e6
+    data_conf['data_size'] = 8192
+    data_conf['save_hdf5'] = True
+    data_conf['save_lost'] = False
+    data_conf['voltage_scale_f'] = 0.5/2**15
+    data_conf['avg_n'] = 8
 
     print(" ")
     print("-"*80)
@@ -120,84 +147,50 @@ if 'raw_rx' in sys.argv[0]:
         data_conf['output_fft'] = False
         print("output ",  green_raw_data)
 
-
-    loop_file= False
-    loop_file_num = 500
-    fft_method = 'numpy'
-    # max_workers = 8
-    # use data_conf to group all the parameters
-    data_conf['node_name'] = node_name
-    data_conf['network_faces'] = network_faces
-    data_conf['sample_rate'] = 480e6
-    data_conf['data_size'] = 8192
-    data_conf['save_hdf5'] = True
-    data_conf['save_lost'] = False
-
-
-    data_conf['voltage_scale_f'] = 0.5/2**15
-    data_conf['avg_n'] = 8
-    sample_rate_over_1000 = data_conf['sample_rate']/1000
-
     if data_conf['output_fft']:
         data_conf['n_frames_per_loop'] = 8192*2
-        data_conf['n_blocks_to_save']  = 1024
+        data_conf['n_blocks_to_save'] = 1024
         data_conf['quantity'] = 'amplitude'
     else:
         # How many udp packets of data received in one read loop
-        data_conf['n_frames_per_loop'] = 8192
         # how many raw data read loops accumulated then save
         # useless in non-fft mode
-        data_conf['n_blocks_to_save']  =1024
+        data_conf['n_frames_per_loop'] = 8192
+        data_conf['n_blocks_to_save'] = 1024
         data_conf['quantity'] = 'voltage'
-
-    ###########################################################################
-    #                 parameters for save the fft of raw data                 #
-    ###########################################################################
 
     # the average time of spectrum
     # data_conf['avg_time'] = 1.0   #ms
+    sample_rate_over_1000 = data_conf['sample_rate']/1000
     fft_single_time = data_conf['fft_npoint'] / sample_rate_over_1000
     data_conf['fft_single_time'] = fft_single_time
     data_conf['avg_time'] = data_conf['avg_n']*fft_single_time
 
     # How many udp packets of data received in one read loop
-
-
     # every *fft_npoint* will be grouped for FFT
     # how many fft groups in one read loop
-    data_conf['n_fft_blocks_per_loop'] = \
-            int(data_conf['data_size']* \
-                data_conf['n_frames_per_loop']/data_conf['fft_npoint']/2)
+    data_conf['n_fft_blocks_per_loop'] = int(data_conf['data_size'] *
+                                             data_conf['n_frames_per_loop']
+                                             / data_conf['fft_npoint']/2)
 
     # how many averageed fft groups in one read loop
     data_conf['n_avg_fft_blocks_per_loop'] = \
-            data_conf['n_fft_blocks_per_loop'] // data_conf['avg_n']
+        data_conf['n_fft_blocks_per_loop'] // data_conf['avg_n']
 
-
-    # the size of socket buffer for recieving data
-    # maximum is 1610612736
-    if 'Darwin' in platform_system:
-        rx_buffer = 7168000
-    else:
-        rx_buffer = 1610612736
-        # rx_buffer = 100000000
-
-
-    if loop_file:
-        if data_conf['file_stop_num'] > loop_file_num:
-            raise ValueError('file stop num greater than loop file num...Please check again')
-
-
-    # default by hour
-    data_conf['split_by_min'] = False
+    if data_conf['loop_file']:
+        if data_conf['file_stop_num'] > data_conf['loop_file_num']:
+            raise ValueError("file stop num greater than loop file \
+                             num...Please check again")
 
     if data_conf['output_fft']:
         print("Each fft block has:", data_conf['fft_npoint'],
-            f" points with resolution: {480000/data_conf['fft_npoint']:.3f} kHz")
+              f" points with resolution: \
+              {480000/data_conf['fft_npoint']:.3f} kHz")
         print("Each processing loop have",
-            data_conf['n_fft_blocks_per_loop'], "fft blocks")
-        print(f"The average time of fft spectrum is {data_conf['avg_time']:.3f}",
-            "ms and ", data_conf['avg_n'], " times.")
+              data_conf['n_fft_blocks_per_loop'], "fft blocks")
+        print(f"The average time of fft spectrum is \
+              {data_conf['avg_time']:.3f}",
+              "ms and ", data_conf['avg_n'], " times.")
     else:
         print("Each file has ", data_conf['n_blocks_to_save'], " data frames")
 
@@ -205,15 +198,7 @@ if 'raw_rx' in sys.argv[0]:
         print("The Program will run forever")
     else:
         print("The Program will stop after saving ",
-            data_conf['file_stop_num'], " files")
-
+              data_conf['file_stop_num'], " files")
 else:
     data_conf['fft_npoint'] = 65536
-    # the rx program runing forever ? file_stop_num < 0 or it will stop at saved a
-    # few files
-    # run_forever = True
     data_conf['file_stop_num'] = 400
-
-
-
-

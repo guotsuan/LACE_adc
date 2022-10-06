@@ -15,40 +15,36 @@ import sys
 import os
 import time
 import shutil
-import argparse
 import json
 import queue
+import logging
 from concurrent import futures
-from multiprocessing import RawValue, Process, SimpleQueue, Queue
+from multiprocessing import Queue
 
 import h5py as h5
 import numpy as np
 
 # put all configrable parameters in params.py
-from params import *
-from rx_helper import *
+from params import labels, data_conf, rx_buffer, output_sel, \
+    src_ip, src_port, dst_ip, dst_port, green_ok
+
+from rx_helper import save_meta_file, display_metrics, \
+    prepare_folder, set_noblocking_keyboard, read_temp, data_file_prefix, \
+    epoctime2date
 
 affinity_mask = {0, 1}
 os.sched_setaffinity(0, affinity_mask)
 
-data_dir = ''
-good = 0
-
-from params import *
-from rx_helper import *
+data_dir = data_conf['data_dir']
 print("-"*80)
 print("recieving output type from input: ", labels[output_sel])
 print("saving into the folder: ", data_dir)
 
-
 prepare_folder(data_dir)
 
-
 data_conf['output_sel'] = output_sel
-
 src_udp_ip = src_ip[output_sel]
 src_udp_port = src_port[output_sel]
-
 udp_ip = dst_ip[output_sel]
 udp_port = dst_port[output_sel]
 
@@ -62,26 +58,23 @@ n_blocks_to_save = data_conf['n_blocks_to_save']
 quantity = data_conf['quantity']
 file_stop_num = data_conf['file_stop_num']
 file_prefix = labels[data_conf['output_sel']]
+cycle = 4294967295
+forever = True
 
 # set the input of keyboard no-blocking
 if file_stop_num < 0:
     set_noblocking_keyboard()
 
 # the period of the consecutive ID is 2**32 - 1 = 4294967295
-cycle = 4294967295
-max_id = 0
-forever = True
 
 # length of ID (bytes)
 id_size = 4
-
 # seprator size
 sep_size = 4
 payload_size = 8200
 header_size = 28
 block_size = 1024
 warmup_size = 4096
-
 num_lost_all = 0.0
 
 data_conf['payload_size'] = payload_size
@@ -116,6 +109,7 @@ id_buff = memoryview(udp_id)
 # v= RawValue('i', 0)
 file_q = Queue()
 
+
 def move_file(file_q):
     loop = True
     while loop:
@@ -127,12 +121,11 @@ def move_file(file_q):
             print("All files have been moved. Terminate move_file queue...")
             loop = False
 
+
 def dumpdata_hdf5_q4(file_name, data, id_data, block_time):
 
-    # voltage_scale_f = 0.5/2**15
     quantity = data_conf['quantity']
-
-    f=h5.File(file_name +'.h5','w')
+    f = h5.File(file_name + '.h5', 'w')
     dset = f.create_dataset(quantity, data=data)
     temp_ps, temp_pl = read_temp(sock_temp)
     dset.attrs['temp_ps'] = temp_ps
@@ -145,12 +138,12 @@ def dumpdata_hdf5_q4(file_name, data, id_data, block_time):
 
     return
 
+
 def dumpdata_hdf5_q3(file_name, data, id_data, block_time, fout_dst, file_q):
 
-    # voltage_scale_f = 0.5/2**15
     quantity = data_conf['quantity']
 
-    f=h5.File(file_name +'.h5','w')
+    f = h5.File(file_name + '.h5', 'w')
     dset = f.create_dataset(quantity, data=data)
     temp_ps, temp_pl = read_temp(sock_temp)
     dset.attrs['temp_ps'] = temp_ps
@@ -328,8 +321,8 @@ if __name__ == '__main__':
             #                            saving data                              #
             #######################################################################
 
-            if loop_file:
-                k = file_cnt % loop_file_num
+            if data_conf['loop_file']:
+                k = file_cnt % data_conf['loop_file_num']
             else:
                 k = file_cnt
 
