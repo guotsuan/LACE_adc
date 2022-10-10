@@ -190,7 +190,6 @@ def get_data(data_dir, nfft=None, power_unit='dBm', workers=None,
                                                 data_conf['voltage_scale_f'],
                                                 'amplitude',
                                                 mean=True,
-                                                workers=workers,
                                                  fft_method=fft_method)
                     print('fft_data shpe', fft_data.shape)
                     print('mean_fft shpe', mean_fft.shape)
