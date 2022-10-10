@@ -16,7 +16,6 @@ import os
 import datetime, time
 import termios, fcntl
 import cupy as cp
-import torch
 import mkl_fft
 from scipy.fft import rfft,rfftfreq
 import shutil
@@ -189,19 +188,6 @@ def compute_fft_data2(data, fft_length, scale_f, quantity, mean=True):
         if mean:
             mean_fft_result = np.mean(mean_fft_result, axis=0)
 
-    elif fft_method == 'pytorch':
-        device = torch.device('cuda')
-        fft_in_data = torch.from_numpy(fft_in_data).to(device)
-
-        if quantity == 'amplitude':
-            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data,
-                dim=-1).cpu().detach().numpy())
-        elif quantity == 'power':
-            mean_fft_result = np.abs(torch.fft.rfft(fft_in_data,
-                dim=-1).detach().cpu().numpy())**2
-
-        if mean:
-            mean_fft_result = np.mean(mean_fft_result, axis=0)
     else:
         print(quantity)
         if quantity == 'amplitude':
@@ -227,17 +213,6 @@ def compute_fft_data_only(fft_in_data, fft_method):
         elif data_conf['quantity'] == 'power':
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2
 
-    elif fft_method == 'pytorch':
-        device = torch.device('cuda')
-        fft_in_data = torch.from_numpy(fft_in_data).to(device)
-
-        if data_conf['quantity'] == 'amplitude':
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data,
-                dim=-1).cpu().detach().numpy()), axis=1)
-        elif data_conf['quantity'] == 'power':
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data,
-                dim=-1).detach().cpu().numpy())**2, axis=1)
-
     else:
         if quantity == 'amplitude':
             mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
@@ -259,16 +234,6 @@ def compute_fft_data(fout,data, n_save, avg_n, fft_length, scale_f,
         elif quantity == 'power':
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2
 
-    elif fft_method == 'pytorch':
-        device = torch.device('cuda')
-        fft_in_data = torch.from_numpy(fft_in_data).to(device)
-
-        if quantity == 'amplitude':
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data,
-                dim=-1).cpu().detach().numpy()), axis=1)
-        elif quantity == 'power':
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data,
-                dim=-1).detach().cpu().numpy())**2, axis=1)
 
     else:
         if quantity == 'amplitude':
@@ -494,17 +459,6 @@ def compute_fft(data_in, fft_length, i):
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
         elif data_conf['quantity'] == 'power':
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2
-
-    elif fft_method == 'pytorch':
-        device = torch.device('cuda')
-        fft_in_data = torch.from_numpy(fft_in_data).to(device)
-
-        if data_conf['quantity'] == 'amplitude':
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data,
-                dim=-1).cpu().detach().numpy()), axis=1)
-        elif data_conf['quantity'] == 'power':
-            mean_fft_result = np.mean(np.abs(torch.fft.rfft(fft_in_data,
-                dim=-1).detach().cpu().numpy())**2, axis=1)
 
     else:
         if data_conf['quantity'] == 'amplitude':
