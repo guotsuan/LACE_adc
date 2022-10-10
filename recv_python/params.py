@@ -124,6 +124,8 @@ if 'raw_rx' in sys.argv[0]:
     # after saving file_stop_num files
     # run_forever = True
     data_conf['file_stop_num'] = args.f_num
+    # group files by the hour of the day, if too many files in a folder, can
+    # also be grouped by each minute of the hour
     # default by hour
     data_conf['split_by_min'] = False
     data_conf['loop_file'] = False
