@@ -28,15 +28,16 @@ from recv_python.fft_helper import *
 # wave_type = "sine"
 wave_type = "white"
 name_list = ["wn_10dbm", "wn_15dbm", "wn_20dbm", "wn_40dbm"]
-name_list = ["wn_open", "wn_open_2", "danl"]
+name_list = ["wn_open", "wn_open_2", "danl2"]
 color = ['k', 'b', 'r', 'y']
 
 plt.figure(figsize=(9,5))
 for name_appedix, cc in zip(name_list, color):
 
-    data_dir ="/data/" + name_appedix
-    if name_appedix == 'danl':
-        px, py, rbw = get_data(data_dir, 536870912)
+    data_dir ="/home/gq/projs/data/" + name_appedix
+    if name_appedix == 'danl2':
+        px, py, rbw = get_data(data_dir, 536870912, workers=4, file_stop=16*1,
+                               fft_method="mkl_fft")
     else:
         px, py, rbw = get_data(data_dir)
 
@@ -46,11 +47,11 @@ for name_appedix, cc in zip(name_list, color):
 
     # peakpower, peakf = peak_power_detector(px, dbm_fft)
     plt.plot(px, py - 10*np.log10(rbw) , color=cc, lw=0.5,
-             label="RX " + name_appedix[3:-1], alpha=0.6)
+             label="RX " + f"rbw {rbw:.2f}", alpha=0.6)
     plt.plot(px, py, color=cc, lw=2.0,
-             label="RX " + name_appedix[3:-1])
+             label="RX " + f"rbw {rbw:.2f} per Hz", alpha=0.4)
     # plt.axvline(peakf, color='y', alpha=0.5)
-    plt.ylim([-150,-60])
+    plt.ylim([-160,-50])
     plt.xlim([-1,245])
     plt.xlabel("MHz")
     ppx = 45
@@ -77,9 +78,9 @@ for name_appedix, cc in zip(name_list, color):
 #             'Peak power in theory: {:.2f} dBm @ {:.2f} MHz'.format(
 #               23.01, peakf), color='b')
 
-plt.legend(loc='lower right')
+plt.legend(loc='upper right')
 plt.ylabel("dBm/Hz")
 plt.title("Dispaly Average Noise Level (DANL)")
 # plt.tightlayout()
 plt.show()
-# plt.savefig("compare.pdf")
+# plt.savefig("danl_single.pdf")
