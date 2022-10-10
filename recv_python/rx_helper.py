@@ -170,15 +170,15 @@ def set_noblocking_keyboard():
     oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
-def compute_fft_data2(data, fft_length, scale_f, quantity, mean=True):
-    fft_method = ''
+def compute_fft_data2(data, fft_length, scale_f, quantity, mean=True,
+                      fft_method=''):
     if mean:
         fft_in_data = scale_f*data.reshape((-1,fft_length))
         print("fft_in_data shape: ",fft_in_data.shape)
     else:
         fft_in_data = scale_f*data
 
-    if fft_method =='cupy':
+    if fft_method == 'cupy':
         fft_in_data = cp.array(fft_in_data)
         if quantity == 'amplitude':
             mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
@@ -187,7 +187,12 @@ def compute_fft_data2(data, fft_length, scale_f, quantity, mean=True):
 
         if mean:
             mean_fft_result = np.mean(mean_fft_result, axis=0)
-
+    elif fft_method == 'mkl_fft':
+        if quantity == 'amplitude':
+            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
+            # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
+        elif quantity == 'power':
+            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
     else:
         print(quantity)
         if quantity == 'amplitude':
@@ -197,76 +202,11 @@ def compute_fft_data2(data, fft_length, scale_f, quantity, mean=True):
             mean_fft_result =np.abs(rfft(fft_in_data))**2
             # mean_fft_result = np.abs(np.fft.rfft(fft_in_data))**2
 
-        if mean:
-            mean_fft_result = np.mean(mean_fft_result, axis=0)
+    if mean:
+        mean_fft_result = np.mean(mean_fft_result, axis=0)
 
     return mean_fft_result
 
-def compute_fft_data_only(fft_in_data, fft_method):
-
-    # fft_in_data = fft_in_data[i,...].reshape(-1, fft_length)
-
-    if fft_method =='cupy':
-        fft_in_data = cp.array(fft_in_data)
-        if data_conf['quantity'] == 'amplitude':
-            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
-        elif data_conf['quantity'] == 'power':
-            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2
-
-    else:
-        if quantity == 'amplitude':
-            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
-            # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
-        elif quantity == 'power':
-            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
-
-    return mean_fft_result
-
-def compute_fft_data(fout,data, n_save, avg_n, fft_length, scale_f,
-        i,j, save_hdf5):
-
-    fft_in_data = scale_f*data.reshape((-1, avg_n, fft_length))
-
-    if fft_method =='cupy':
-        fft_in_data = cp.array(fft_in_data)
-        if quantity == 'amplitude':
-            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())
-        elif quantity == 'power':
-            mean_fft_result = np.abs(cp.fft.rfft(fft_in_data).get())**2
-
-
-    else:
-        if quantity == 'amplitude':
-            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))
-            # mean_fft_result =np.abs(np.fft.rfft(fft_in_data))
-        elif quantity == 'power':
-            mean_fft_result =np.abs(mkl_fft.rfft_numpy(fft_in_data))**2
-
-    # fft_out[i:j,...]=mean_fft_result
-
-    # if save_hdf5:
-        # f=h5.File(fout +'.h5','a')
-
-        # if quantity not in f:
-            # maxshape = (n_save*n_fft_blocks_per_loop, fft_length//2+1)
-            # dset = f.create_dataset(quantity, data=mean_fft_result,
-                    # maxshape=maxshape)
-            # # dset.attrs['start_time'] = stime
-            # # dset.attrs['block_time'] = t1
-            # dset.attrs['avg_n'] = avg_n
-            # dset.attrs['fft_length'] =  fft_length
-            # f.close()
-        # else:
-            # oldshape = f[quantity].shape
-            # newshape = (j, oldshape[1])
-            # f[quantity].resize(newshape)
-            # f[quantity][i:j,...]=mean_fft_result
-            # f.close()
-    # else:
-        # np.save(file_name +'.npy', data)
-
-
-    # save small fft group of points and submit to ques and concurrentq
 
 def dump_fft_data(file_name, data, stime, t1, avg_n, fft_length,
         scale_f=1.0, save_hdf5=False, header=None):
