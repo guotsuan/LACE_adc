@@ -282,7 +282,7 @@ def save_hdf5_fft_data3(file_name, data, id_data, block_time):
     return
 
 
-def dumpdata_hdf5_fft_q3(data, id_data, block_time, file_q):
+def dumpdata_hdf5_fft_q3(data_conf, data, id_data, block_time, file_q):
 
     # print("dumpdata_hdf5_fft_q3 pid: ", os.getpid())
 

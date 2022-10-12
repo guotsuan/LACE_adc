@@ -88,10 +88,8 @@ if 'raw_rx' in sys.argv[0]:
     parser.add_argument("port",
                         choices=[0, 1, 2, 3],
                         help="the port number of the input that you \
-                              want to observe",
+                            want to observe",
                         type=int)
-    parser.add_argument("directory_to_save",
-                        help="the path of directory to save the data")
 
     parser.add_argument("--fft_npoint",
                         type=int,
@@ -103,10 +101,22 @@ if 'raw_rx' in sys.argv[0]:
                         default=20,
                         help="the number of files saved before stop")
 
-    args = parser.parse_args()
+    if "plot" in sys.argv[0]:
+        parser.add_argument('--waterfall',
+                            action=argparse.BooleanOptionalAction)
+        args = parser.parse_args()
+
+
+    else:
+        parser.add_argument("directory_to_save",
+                            help="the path of directory to save the data")
+        args = parser.parse_args()
+
+        data_conf['data_dir'] = args.directory_to_save
+
 
     output_sel = args.port
-    data_conf['data_dir'] = args.directory_to_save
+    data_conf['output_sel'] = output_sel
 
     # the size of socket buffer for recieving data, maximum is 1610612736
     if 'Darwin' in platform_system:

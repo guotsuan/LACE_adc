@@ -33,6 +33,10 @@ import numpy as np
 from params import *
 from rx_helper import *
 
+if args.waterfall:
+    waterf=True
+else:
+    waterf=False
 data_dir = ''
 single_plot = True
 good = 0
@@ -42,51 +46,12 @@ pid = 0
 os.sched_setaffinity(0, affinity_mask)
 # os.setpriority(os.PRIO_PROCESS, 0, 0)
 
-args_len = len(sys.argv)
-if args_len < 2:
-    print("python " + sys.argv[0] + " <rx_type>")
-    sys.exit()
-
-elif args_len == 2:
-    waterf = False
-    try:
-        args = sys.argv[1].split()
-        input_type = int(args[0])
-
-        output_sel = input_type
-    except:
-        print("input type must be one of 0,1,2,3")
-
-    if output_sel > 3:
-        print("input type", input_type, " must be one of 0,1,2,3")
-        sys.exit()
-    else:
-        print("display output type from input in real time: ", labels[output_sel])
-
-elif args_len == 3:
-    try:
-        args = sys.argv[1].split()
-        input_type = int(args[0])
-        waterf = True
-        output_sel = input_type
-    except:
-        print("input type must be one of 0,1,2,3")
-
-    if output_sel > 3:
-        print("input type", input_type, " must be one of 0,1,2,3")
-        sys.exit()
-    else:
-        print("display output type from input in real time: ", labels[output_sel])
-
-
-
 fft_data_rec = ''
 old_fft_data_rec = ''
 waterfall_data = ''
 mean_fft_data = ''
 gnn = 0
 wnn = 0
-data_conf['output_sel'] = output_sel
 scale_f = data_conf['voltage_scale_f']
 
 src_udp_ip = src_ip[output_sel]
@@ -351,12 +316,12 @@ def save_fft_data(fft_out_q, dconf, v, tot):  #{{{
                             avg_n: {callback.avg_num*avg_n:d}, frame id {i%ngrp:d}")
             ax.set_xlim([0, 245])
 
-            ax.set_ylim([-120, -10])
+            # ax.set_ylim([-120, -10])
             ax.set_xlabel("Freq (Mhz)")
             ax.set_ylabel("Power (dBm)")
 
 
-    ani = FuncAnimation(fig, animate, interval = 20)
+    ani = FuncAnimation(fig, animate, interval = 200)
 
     # plt.tight_layout()
     plt.show()
@@ -419,7 +384,7 @@ if __name__ == '__main__':
     data_conf['id_tail_before'] = id_tail_before
     data_conf['t0_time'] = t0_time
     start_id = id_tail_before
-    file_path_old = data_file_prefix(data_dir, t0_time)
+    file_path_old = data_file_prefix(data_dir, t0_time, data_conf)
 
     executor = futures.ThreadPoolExecutor(max_workers=1)
     executor_save = futures.ThreadPoolExecutor(max_workers=1)
@@ -492,10 +457,12 @@ if __name__ == '__main__':
                     num_lost_all += 1
                 else:
 
-                    executor.submit(dumpdata_hdf5_fft_q3,udp_payload_arr, id_arr,
+                    executor.submit(data_conf, dumpdata_hdf5_fft_q3,
+                                    udp_payload_arr, id_arr,
                                     block_time, tx)
-                # dumpdata_hdf5_fft_q3(udp_payload_arr, id_arr,
-                                # block_time, tx)
+
+                    # dumpdata_hdf5_fft_q3(data_conf, udp_payload_arr, id_arr,
+                                         # block_time, tx)
             else:
                 logging.warning("block is not connected, %i, %i", id_tail_before, id_arr[0])
                 num_lost_all += 1
