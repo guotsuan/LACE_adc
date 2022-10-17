@@ -13,8 +13,10 @@ import platform as pf
 import netifaces
 import argparse
 import os
+from rich.console import Console
 import sys
 
+console=Console()
 
 class bcolors:
     HEADER = '\033[95m'
@@ -150,7 +152,8 @@ if 'raw_rx' in sys.argv[0]:
     data_conf['avg_n'] = 8
 
     print(" ")
-    print("-"*80)
+    style = "bold white on blue"
+    console.rule("Info", style=style)
 
     if 'fft' in sys.argv[0]:
         data_conf['output_fft'] = True

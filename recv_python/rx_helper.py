@@ -17,6 +17,8 @@ import datetime, time
 import termios, fcntl
 import cupy as cp
 import mkl_fft
+import rich
+from rich.table import Table
 from scipy.fft import rfft,rfftfreq
 import shutil
 import logging
@@ -69,6 +71,44 @@ def save_meta_file(fname, stime, s_id, data_conf):
         # ff.create_dataset('location', data=loc)
 
     ff.close()
+
+def display_metrics_header() -> Table:
+    style = "bold white on blue"
+    table = Table(title="Collecting data...", style=style)
+    table.add_column("Time of the loop", style=style)
+    table.add_column("Total lost packets", style=style)
+    table.add_column("Elapsed time", style=style)
+    table.add_column("Transfer Speed", style=style)
+    table.add_column("Num of file saved", style=style)
+    return table
+
+def display_metrics_rich(time_before,time_now, s_time, num_lost_all, dconf,
+                    tot_file_cnt=None) -> Table:
+    sample_rate = dconf['sample_rate']
+    n_frames_per_loop = dconf['n_frames_per_loop']
+    payload_size = dconf['payload_size']
+
+    size_of_data_per_sec = sample_rate * 2  # 2 byte times 480e6 points/s
+    acq_data_size = n_frames_per_loop * payload_size
+    # duration  = acq_data_size / size_of_data_per_sec * 1.0
+    acq_time = time_now - time_before
+
+    style="bold white on blue"
+    table = Table(title="Collecting data...", style=style)
+    table.add_column("Time of the loop", style=style)
+    table.add_column("Total lost packets", style=style)
+    table.add_column("Elapsed time", style=style)
+    table.add_column("Transfer Speed", style=style)
+    table.add_column("Num of file saved", style=style)
+
+    table.add_row(f"{time_now - time_before:.3f} s",
+                  f"{num_lost_all:.3f}",
+                  f"{time_now - s_time:.3f} s",
+                  f'{acq_data_size/1024/1024/acq_time:.3f} MB/s' ,
+                  f'{tot_file_cnt:d}'
+                  )
+
+    return table
 
 def display_metrics(time_before,time_now, s_time, num_lost_all, dconf,
                     tot_file_cnt=None):
