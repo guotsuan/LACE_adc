@@ -74,12 +74,13 @@ def save_meta_file(fname, stime, s_id, data_conf):
 
 def display_metrics_header() -> Table:
     style = "bold white on blue"
-    table = Table(title="Collecting data...", style=style)
+    table = Table(title="Collecting data...", style=style, width=100)
     table.add_column("Time of the loop", style=style)
     table.add_column("Total lost packets", style=style)
     table.add_column("Elapsed time", style=style)
     table.add_column("Transfer Speed", style=style)
     table.add_column("Num of file saved", style=style)
+    table.add_row("", "", "", "", "")
     return table
 
 def display_metrics_rich(time_before,time_now, s_time, num_lost_all, dconf,
@@ -94,7 +95,7 @@ def display_metrics_rich(time_before,time_now, s_time, num_lost_all, dconf,
     acq_time = time_now - time_before
 
     style="bold white on blue"
-    table = Table(title="Collecting data...", style=style)
+    table = Table(title="Collecting data...", style=style, width=100)
     table.add_column("Time of the loop", style=style)
     table.add_column("Total lost packets", style=style)
     table.add_column("Elapsed time", style=style)

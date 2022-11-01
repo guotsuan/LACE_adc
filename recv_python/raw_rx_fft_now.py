@@ -30,6 +30,8 @@ import datetime
 import shutil
 from concurrent import futures
 from rich.live import Live, Console
+from rich.table import Table
+from rich import print
 from monitor_voltage import check_voltage
 
 # import h5py as h5
@@ -51,12 +53,31 @@ from params import *
 from rx_helper import *
 
 data_dir = data_conf['data_dir']
-console.rule(style=style)
-print(" ")
-print("recieving output type from input: ", labels[output_sel])
-print("saving into the folder: ", data_dir)
+abs_fail_volt = data_conf['abs_fail_volt']
 
-prepare_folder(data_dir)
+# print(" ")
+grid = Table.grid(expand=False)
+grid.add_column(justify="left", width=50, vertical="center")
+grid.add_column(width=30, vertical="cetner")
+grid.add_column(justify="right", width=20, vertical="center")
+
+grid.add_row("recieving output type from input: ", "", labels[output_sel])
+grid.add_row("saving into the folder: ", "", data_dir)
+
+
+grid.add_row("", "Starting...","", style='bold white on green')
+
+# preare dir
+isdir = os.path.isdir(data_dir)
+if isdir:
+    files = os.listdir(data_dir)
+    if len(files) != 0:
+        grid.add_row("Clear diretory...", "", "[green]ok")
+        shutil.rmtree(data_dir)
+        os.mkdir(data_dir)
+
+else:
+    os.mkdir(data_dir)
 
 data_conf['fft_npoint'] = args.fft_npoint
 data_conf['output_sel'] = output_sel
@@ -135,8 +156,8 @@ if err:
     sock.close()
     raise ValueError("set socket error")
 
-print("Receiving IP and Port: ", udp_ip, udp_port, "Binding..." + green_ok)
 sock.bind((udp_ip, udp_port))
+grid.add_row("Receiving IP and Port: ", f"{udp_ip}:{udp_port}", "[green]ok")
 
 
 udp_payload = bytearray(n_frames_per_loop*payload_size)
@@ -161,7 +182,7 @@ fft_id_to_file = np.zeros((n_blocks_to_save, n_frames_per_loop), dtype=np.uint32
 
 def dumpdata_hdf5_fft_q6(data_dir, data, id_data):
 
-    global nn, voltage_fail
+    global nn, voltage_fail, abs_fail_volt
     global ngrp
     global file_cnt
     global output_sel, file_path, file_path_old
@@ -238,7 +259,7 @@ def dumpdata_hdf5_fft_q6(data_dir, data, id_data):
 
         volt = check_voltage()
 
-        if volt0 - volt > 4.4 and volt > 0:
+        if (volt0 - volt > 4.4 and volt > 0 ) or (volt < abs_fail_volt):
             voltage_fail += 1
 
         if voltage_fail > 10:
@@ -264,8 +285,10 @@ if __name__ == '__main__':
     # Drop the some data packets to avoid unstable
 
     volt0 = check_voltage()
-    print("Starting...." + green_ok)
-    print(f"System main power voltage is {volt0}")
+    if volt0 > 18.0:
+        grid.add_row(f"System main power voltage", f"{volt0} V", "[green]ok")
+    else:
+        grid.add_row(f"System main power voltage", f"{volt0} V", "[red]warning!")
 
     payload_buff_head = payload_buff
 
@@ -277,7 +300,7 @@ if __name__ == '__main__':
 
     tmp_id = 0
 
-    print("Warming Up...." + green_ok)
+    grid.add_row("Warming up....",  "",  "[green]ok")
     # Wait until the SeqNo is 1023 to start collect data, which is easy
     # to drap the data frames if one of them are lost in the transfering.
 
@@ -293,8 +316,11 @@ if __name__ == '__main__':
     id_tail_before = int.from_bytes(warmup_data[payload_size-id_size:
         payload_size], 'big')
 
-    print("Warmup finished with last data seqNo: ", id_tail_before,
-            tmp_id % block_size, green_ok)
+    grid.add_row("Warmup finished with last data seqNo: ",
+                 f"{id_tail_before}, {tmp_id % block_size}",
+                 "[green]ok")
+
+    print(grid)
 
     logfile = os.path.join(data_dir, 'rx.log')
     logging.basicConfig(filename=logfile, level=logging.INFO,

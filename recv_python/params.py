@@ -14,6 +14,8 @@ import netifaces
 import argparse
 import os
 from rich.console import Console
+from rich import print
+from rich.table import Table
 import sys
 
 console=Console()
@@ -34,10 +36,17 @@ def is_nic_up(nic):
     addr = netifaces.ifaddresses(nic)
     return netifaces.AF_INET in addr
 
+grid = Table.grid()
+grid.add_column(justify="left", width=50, vertical="center")
+grid.add_column(width=30, vertical="cetner")
+grid.add_column(justify="right", width=20, vertical="center")
+grid.add_row("", "Info","", style='bold white on blue')
 
 green_ok = bcolors.OKGREEN + " .....OK." + bcolors.ENDC
-green_fft_data = bcolors.OKGREEN + "FFT data" + bcolors.ENDC
-green_raw_data = bcolors.FAIL + "raw data" + bcolors.ENDC
+# green_fft_data = bcolors.OKGREEN + "FFT data" + bcolors.ENDC
+# green_raw_data = bcolors.FAIL + "raw data" + bcolors.ENDC
+green_fft_data = "[green]FFT data"
+green_raw_data = "[red]RAW data"
 
 # the order of the lists is "RAW1, FFT1, RAW2, FFT2"
 # do not change
@@ -79,7 +88,7 @@ for nic in network_faces:
             print("Warning: " + nic + "is not up")
             print("Bring up " + nic)
 
-        print("Nic name: ", nic, " is ready")
+        grid.add_row("Nic name: ", nic, "ready")
         addrs = netifaces.ifaddresses(nic)
         dst_mac.append(addrs[netifaces.AF_LINK][0]['addr'])
         dst_ip.append(addrs[netifaces.AF_INET][0]['addr'])
@@ -150,17 +159,16 @@ if 'raw_rx' in sys.argv[0]:
     data_conf['save_lost'] = False
     data_conf['voltage_scale_f'] = 0.5/2**15
     data_conf['avg_n'] = 8
+    data_conf['abs_fail_volt'] = 18.0
 
-    print(" ")
     style = "bold white on blue"
-    console.rule("Info", style=style)
 
     if 'fft' in sys.argv[0]:
         data_conf['output_fft'] = True
-        print("output ",  green_fft_data)
+        grid.add_row("output ",  "", green_fft_data)
     else:
         data_conf['output_fft'] = False
-        print("output ",  green_raw_data)
+        grid.add_row("output ",  "", green_raw_data)
 
     if data_conf['output_fft']:
         data_conf['n_frames_per_loop'] = 8192*2
@@ -198,22 +206,29 @@ if 'raw_rx' in sys.argv[0]:
                              num...Please check again")
 
     if data_conf['output_fft']:
-        print("Each fft block has:", data_conf['fft_npoint'],
-              f" points with resolution: \
-              {480000/data_conf['fft_npoint']:.3f} kHz")
-        print("Each processing loop have",
-              data_conf['n_fft_blocks_per_loop'], "fft blocks")
-        print(f"The average time of fft spectrum is \
-              {data_conf['avg_time']:.3f}",
-              "ms and ", data_conf['avg_n'], " times.")
+        grid.add_row("Each fft block has:",
+                     f"{data_conf['fft_npoint']} points",
+                     f"{480000/data_conf['fft_npoint']:.3f} kHz rbw")
+        grid.add_row("Each processing loop has",
+                     f"{data_conf['n_fft_blocks_per_loop']}",
+                     "fft blocks")
+        grid.add_row(f"The average time of fft spectrum is",
+                     f"{data_conf['avg_time']:.3f} ms",
+                     f"every {data_conf['avg_n']} times")
     else:
-        print("Each file has ", data_conf['n_blocks_to_save'], " data frames")
+        grid.add_row("Each file has ",
+                     f"{data_conf['n_blocks_to_save']}",
+                     "data frames")
 
     if data_conf['file_stop_num'] < 0:
-        print("The Program will run forever")
+        grid.add_row("The Program will run", "",
+                     "[red]forever")
     else:
-        print("The Program will stop after saving ",
-              data_conf['file_stop_num'], " files")
+        grid.add_row("The Program will stop after saving ",
+                     f"{data_conf['file_stop_num']}",
+                     "files")
 else:
     data_conf['fft_npoint'] = 65536
     data_conf['file_stop_num'] = 400
+
+print(grid)
