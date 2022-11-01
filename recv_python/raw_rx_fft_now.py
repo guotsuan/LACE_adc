@@ -30,6 +30,7 @@ import datetime
 import shutil
 from concurrent import futures
 from rich.live import Live, Console
+from monitor_voltage import check_voltage
 
 # import h5py as h5
 import numpy as np
@@ -39,8 +40,11 @@ import cupy as cp
 
 good = 0
 output_sel = -1
+voltage_fail = 0
+volt0 = -1.0
 file_path = ''
 file_path_old = ''
+
 
 
 from params import *
@@ -150,13 +154,14 @@ file_cnt = 0
 tot_file_cnt = 0
 
 
+
 fft_block_time_to_file = np.zeros((n_blocks_to_save,), dtype='S30')
 fft_data_to_file = cp.zeros((n_blocks_to_save, fft_length//2+1))
 fft_id_to_file = np.zeros((n_blocks_to_save, n_frames_per_loop), dtype=np.uint32)
 
 def dumpdata_hdf5_fft_q6(data_dir, data, id_data):
 
-    global nn
+    global nn, voltage_fail
     global ngrp
     global file_cnt
     global output_sel, file_path, file_path_old
@@ -231,6 +236,17 @@ def dumpdata_hdf5_fft_q6(data_dir, data, id_data):
         tot_file_cnt += 1
         file_path_old = file_path
 
+        volt = check_voltage()
+
+        if volt0 - volt > 4.4 and volt > 0:
+            voltage_fail += 1
+
+        if voltage_fail > 10:
+            print("System will shut down in 1 min")
+            logging.warning("System shut down due to the low power")
+            os.system("sudo shutdown -P 1")
+            forever = False
+
         if tot_file_cnt == file_stop_num:
             forever = False
             return
@@ -247,7 +263,10 @@ if __name__ == '__main__':
     # Warm up the system....
     # Drop the some data packets to avoid unstable
 
+    volt0 = check_voltage()
     print("Starting...." + green_ok)
+    print(f"System main power voltage is {volt0}")
+
     payload_buff_head = payload_buff
 
     id_head_before = 0
@@ -284,7 +303,7 @@ if __name__ == '__main__':
             tmp_id % block_size)
     if log_ngrp:
         print("Warning: n_blocks_to_save is changed to ", ngrp)
-        logging.info("Warning: n_blocks_to_save is changed to %i ", ngrp)
+        logging.warning("Warning: n_blocks_to_save is changed to %i ", ngrp)
 
     try:
         sock_temp = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
