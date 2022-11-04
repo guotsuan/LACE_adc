@@ -14,40 +14,31 @@ import socket
 from io import BytesIO
 import pynmea2
 from pynmea2 import ParseError
-import errno
 from socket import error as socket_error
+from rich import print
+from rich.table import Table
 import sys
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
 
+green_ok = "[green]OK"
 
-green_ok = bcolors.OKGREEN + " OK" + bcolors.ENDC
-red_failed = bcolors.FAIL + " red_failed" + bcolors.ENDC
 
 def get_gps_coord():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
         s.connect(("192.168.1.111", 4001))
-    except socket_error as serr:
+    except socket_error:
         print("Cannot connect to the GPS/NTP server")
-        print("Please wait for the GPS/NTP server to power up... or we have a serious problem.")
+        print("Please wait for the GPS/NTP server to power up...,",
+              "or we have a serious problem.")
         sys.exit()
 
-    get_coord =False
+    get_coord = False
 
     with BytesIO() as buffer:
         while not get_coord:
-            ff = s.recv(2048)       # Read in some number of bytes -- balance this
+            ff = s.recv(2048)
             buffer.write(ff)
             buffer.seek(0)
             for line in buffer.readlines():
@@ -61,10 +52,12 @@ def get_gps_coord():
                 else:
                     if hasattr(msg, "lat"):
                         lat = msg.lat
-                        full_lat = msg.lat_dir + lat[0:2]+ u"\N{DEGREE SIGN}" + lat[2:] + "'"
+                        full_lat = msg.lat_dir + lat[0:2] + \
+                            u"\N{DEGREE SIGN}" + lat[2:] + "'"
 
                         lon = msg.lon
-                        full_lon = msg.lon_dir + lon[0:3]+ u"\N{DEGREE SIGN}" + lon[3:] + "'"
+                        full_lon = msg.lon_dir + lon[0:3] + \
+                            u"\N{DEGREE SIGN}" + lon[3:] + "'"
                         s.close()
                         get_coord = True
 
@@ -72,22 +65,25 @@ def get_gps_coord():
 
 
 def check_gps():
+    grid = Table.grid()
+
+    grid.add_column(justify="left", width=40, vertical="center")
+    grid.add_column(justify="right", width=60, vertical="center")
+
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
         s.connect(("192.168.1.111", 4001))
-    except socket_error as serr:
+    except socket_error:
         print("Cannot connect to the GPS/NTP server")
-        print("Please wait for the GPS/NTP server to power up... or we have a serious problem.")
+        print("Please wait for the GPS/NTP server to power up...",
+              " or we have a serious problem.")
         sys.exit()
-
 
     print("   ")
     print("Connected to the GPS/Oscillator system....\n")
 
     lat_showed = False
-    lon_showed = False
-    sat_num_showed = False
     ant_showed = False
     sat_showed = False
     system_ready = False
@@ -106,8 +102,6 @@ def check_gps():
 
             if tn % delay == 0:
                 lat_showed = False
-                lon_showed = False
-                sat_num_showed = False
                 ant_showed = False
                 sat_showed = False
                 system_ready = False
@@ -115,7 +109,7 @@ def check_gps():
                 acq = False
                 hold = False
                 oscillator_ready = False
-            ff = s.recv(2048)       # Read in some number of bytes -- balance this
+            ff = s.recv(2048)
             buffer.write(ff)
             buffer.seek(0)
             for line in buffer.readlines():
@@ -129,24 +123,26 @@ def check_gps():
                 else:
                     if hasattr(msg, "lat") and not lat_showed:
                         lat = msg.lat
-                        # lmin = msg[3:]
-                        full_lat = msg.lat_dir + lat[0:2]+ u"\N{DEGREE SIGN}" + lat[2:] + "'"
+                        full_lat = msg.lat_dir + lat[0:2] + \
+                            u"\N{DEGREE SIGN}" + lat[2:] + "'"
 
                         lon = msg.lon
-                        # lmin = msg[3:]
-                        full_lon = msg.lon_dir + lon[0:3]+ u"\N{DEGREE SIGN}" + lon[3:] + "'"
-                        print("Latitude: ", full_lon, "Latitude: ", full_lat)
+                        full_lon = msg.lon_dir + lon[0:3] + \
+                            u"\N{DEGREE SIGN}" + lon[3:] + "'"
+                        grid.add_row("Lontitude: ", "Latitude: ")
+                        grid.add_row(full_lon,  full_lat)
 
                         lat_showed = True
-                        lon_showed = True
-
 
                     if hasattr(msg, 'data'):
-                        if hasattr(msg, 'msg_type') and msg.msg_type == '12' and not sat_showed:
-                            print("Date: ", msg.data[3] + '.' + msg.data[2] +'.' +
-                                    msg.data[1], 'UTC: '+msg.data[0][0:2] +':' +
-                                    msg.data[0][3:5] +':' + msg.data[0][5:])
-                            print("GPS Sat number: ", msg.data[4], ", BD Sat number :", msg.data[5])
+                        if hasattr(msg, 'msg_type') and msg.msg_type == '12' \
+                                and not sat_showed:
+                            print("Date: ", msg.data[3] + '.' +
+                                  msg.data[2] + '.' + msg.data[1],
+                                  'UTC: ' + msg.data[0][0:2] + ':' +
+                                  msg.data[0][3:5] + ':' + msg.data[0][5:])
+                            print("GPS Sat number: ", msg.data[4],
+                                  ", BD Sat number :", msg.data[5])
                             sat_showed = True
 
                         if "WARMUP" in msg.data and not warm_up:
@@ -158,32 +154,40 @@ def check_gps():
                             acq = True
 
                         if "HOLDOVER" in msg.data and not hold:
-                            print("Oscillator is in state of holdover...........WARNING, will red_failed in 24 hours")
+                            print("Oscillator is in state of holdover...",
+                                  "WARNING, will red_failed in 24 hours")
                             hold = True
 
                         if "ANTENNA OPEN" in msg.data:
-                            print("ANTENNA is disconnected......." + red_failed)
+                            grid.add_row("ANTENNA is disconnected...",
+                                         "[red]failed")
 
                         if "ANTENNA SHORT" in msg.data:
-                            print("ANTENNA is shorted......." + red_failed)
+                            grid.add_row("ANTENNA is shorted...",
+                                         "[red]failed")
 
                         if "ANTENNA OK" in msg.data and not ant_showed:
-                            print("ANTENNA is ready......." + green_ok)
+                            grid.add_row("ANTENNA is ready...",
+                                         green_ok)
                             ant_showed = True
 
                         if "LOCKED" in msg.data and not oscillator_ready:
-                            print("Oscillator is locked.........." + green_ok)
+                            grid.add_row("Oscillator is locked...",
+                                         green_ok)
                             oscillator_ready = True
 
                         if ant_showed and oscillator_ready:
-                            print("GPS Timer and Oscillator is ready ......" +
-                                    green_ok + "\n")
+                            print(grid)
+                            grid.add_row(
+                                "GPS Timer and Oscillator is ready ...",
+                                green_ok)
                             print("Exited.....\n")
-                            system_ready=True
+                            system_ready = True
                             s.close
-                            return
 
     s.close()
+    return
+
 
 if __name__ == "__main__":
     check_gps()

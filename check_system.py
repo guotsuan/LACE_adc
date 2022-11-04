@@ -11,32 +11,25 @@ Checking the whole system requirment
 """
 
 import subprocess
-import shlex
-import getpass
+from rich.table import Table
+from rich import print
 
 from subprocess import Popen
 
 from gps_and_oscillator.check_status import check_gps
 from network_check.network_check import check_and_update
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-green_ok = bcolors.OKGREEN + " .....OK." + bcolors.ENDC
-red_failed = bcolors.FAIL + " .....FAILED." + bcolors.ENDC
+green_ok = "[green]OK"
+red_failed = "[red]FAILED"
 
 # Check the GPS and oscillator
 check_gps()
 
-print("-"*80)
+grid = Table.grid()
+grid.add_column(justify="left", width=50, vertical="center")
+grid.add_column(width=30, vertical="cetner")
+grid.add_column(justify="right", width=20, vertical="center")
+grid.add_row("", "Kernel parameters", "", style='bold white on blue')
 # Check and correct kernel parameters
 #
 # rmem_max = 1610612736
@@ -51,10 +44,10 @@ kernels_presults = ['1610612736', '1610612736', '300000', '1020000']
 
 # special setting for net.ipv4.udp_mem
 
-udp_mem= '"11416320 15221760 22832640"'
-out = Popen("sudo sysctl -w net.ipv4.udp_mem"  + "=" + udp_mem, shell=True,
-                    stdout=subprocess.PIPE)
-print(out.stdout.read().strip().decode() + "   " + green_ok)
+udp_mem = '"11416320 15221760 22832640"'
+out = Popen("sudo sysctl -w net.ipv4.udp_mem" + "=" + udp_mem,
+            shell=True, stdout=subprocess.PIPE)
+grid.add_row(out.stdout.read().strip().decode(), "", green_ok)
 
 for kp, v in zip(kernels_params, kernels_presults):
     out = Popen("sysctl net.core." + kp, shell=True, stdout=subprocess.PIPE)
@@ -62,21 +55,19 @@ for kp, v in zip(kernels_params, kernels_presults):
     result_s = result.split()
     if len(result_s) == 3:
         if result_s[2] == v:
-            print(result + "   " + green_ok)
+            grid.add_row(result, "", green_ok)
         else:
-            print(result + "   " + red_failed)
+            grid.add_row(result, "", red_failed)
             print("Correcting....")
-            out = Popen("sudo sysctl -w net.core." + kp + "=" + v, shell=True,
-                    stdout=subprocess.PIPE)
+            out = Popen("sudo sysctl -w net.core." + kp + "=" + v,
+                        shell=True, stdout=subprocess.PIPE)
 
-            print(out.stdout.read().strip().decode() + "   " + green_ok)
+            grid.add_row(out.stdout.read().strip().decode(), "", green_ok)
 
 
 
-print("-"*80)
 # Checking The Receiver output....
-# rootuser=subprocess.call(shlex.split('sudo id -nu'))
-print(" ")
-print ("Checking output....\n")
+grid.add_row("", "Checking output", "", style='bold white on blue')
+print(grid)
 check_and_update()
 
