@@ -13,12 +13,14 @@ Checking the status of the outputing network of the receiver
 from warnings import filterwarnings
 from scapy.all import sniff
 import sys
-sys.path.append('../')
-from recv_python.params import *
-
 import platform as pf
 import netifaces as nics
 import numpy as np
+from rich import print
+from recv_python.params import (src_ip, src_port, dst_mac, network_faces,
+                                dst_ip, dst_port, labels, platform_system)
+
+sys.path.append('../')
 
 ########################
 #  General parameters  #
@@ -38,34 +40,37 @@ need_to_update_dst_ips = [False] * 4
 
 seqs = range(4)
 
-def check_output():
-    print("Current Platform: ", pf.platform(), " Node name: ", pf.node())
-    print("Will checking: ", network_faces, "\n")
 
+def check_output():
+    print("Current Platform: ", pf.platform(), "Node name: "+pf.node())
+    print("Will checking: ", network_faces, "")
 
     nic_of_system = nics.interfaces()
 
     for nic in network_faces:
         if nic not in nic_of_system and nic != '':
-            print("network face: " + nic + "is not in the system, please check again...")
+            print("network face: " + nic +
+                  "is not in the system, please check again...")
             print("exited....")
             sys.exit()
 
+    for i, sip, sport, dip, dport, nic, dmac, lb in zip(seqs, src_ip,
+                                                        src_port, dst_ip,
+                                                        dst_port,
+                                                        network_faces,
+                                                        dst_mac, labels):
 
-    for i,sip, sport, dip, dport, nic, dmac, lb in zip(seqs, src_ip, src_port, dst_ip,
-            dst_port, network_faces, dst_mac, labels):
-
-        print("Checking: ", bcolors.UNDERLINE + lb + bcolors.ENDC)
+        print("Checking: ",  "[u]"+lb, "")
         if nic == '':
-            print("Ignore the " + lb  + bcolors.OKBLUE + " ......Ignored" + bcolors.ENDC)
-            print("\n")
+            print("Ignore the ", lb, "[blue].......Ignored")
+            print("")
         else:
             if 'Darwin' in platform_system:
                 # filter option does not working in mac M1
                 p = sniff(count=1, iface=nic, timeout=timeout)
             else:
                 p = sniff(count=1, iface=nic, filter="udp ",
-                        timeout=timeout)
+                          timeout=timeout)
             if p:
                 p.nsummary()
                 ok = True
@@ -75,31 +80,35 @@ def check_output():
                 p_proto = p[0].sprintf("%-8s,IP.proto%")
 
                 if p_dst_ip.strip() != dip.strip():
-                    print("destination IP in the packet is different with the parameter ")
-                    print("In packet: ", p_dst_ip, "In file: ", dip +"\n")
-                    ok=False
+                    print("destination IP in the packet is different with",
+                          " the parameter ")
+                    print("In packet: ", p_dst_ip, "In file: ", dip + "\n")
+                    ok = False
                     need_to_update_dst_ips[i] = True
 
                 if p_src_ip.strip() != sip.strip():
-                    print("source IP in the packet is different with the parameter")
-                    print("In packet: ", p_src_ip, "In file: ", sip +"\n")
-                    ok=False
+                    print("source IP in the packet is different with",
+                          " the parameter")
+                    print("In packet: ", p_src_ip, "In file: ", sip + "\n")
+                    ok = False
 
                 if p_dst_mac.strip() != dmac.strip():
-                    print("destination MAC address in the packet is different with the parameter")
-                    print("Run mac_addr_update.py for you to update the mac registered in the Receiver")
-                    ok=False
+                    print("destination MAC address in the packet is ",
+                          "different with the parameter")
+                    print("Run mac_addr_update.py for you to update the",
+                          " mac registered in the Receiver")
+                    ok = False
                     need_to_update_mac[i] = True
 
                 if p_proto.strip() != 'udp':
                     print("Protcol in the packet is not udp")
                     print("In packet: ", p_proto)
-                    ok=False
+                    ok = False
 
                 if ok:
-                    print (lb + " seems " + bcolors.OKGREEN + ".......OK" + bcolors.ENDC)
+                    print(lb + " seems " + "[green].......OK")
                 else:
-                    print (lb + bcolors.FAIL + " seems failed....." + bcolors.ENDC)
+                    print(lb + " seems [red]......Failed")
 
                 print("\n")
 
@@ -108,14 +117,16 @@ def check_output():
 
     return need_to_update_mac, need_to_update_dst_ips
 
+
 def check_and_update():
-    need_to_update_mac, need_to_update_dst_ips=check_output()
+    need_to_update_mac, need_to_update_dst_ips = check_output()
 
     seqs = range(4)
     status = []
 
-    for i, m, p, dip, dmac in zip(seqs, need_to_update_mac, need_to_update_dst_ips,
-            dst_ip, dst_mac):
+    for i, m, p, dip, dmac in zip(seqs, need_to_update_mac,
+                                  need_to_update_dst_ips,
+                                  dst_ip, dst_mac):
         if m:
             # print("udpate mac port", i)
             status.append(update_mac_addr(dmac, i))
@@ -129,7 +140,9 @@ def check_and_update():
             restart_recv()
             check_output()
         else:
-            print("mac or IP address update failed... Receiver will not reboot")
+            print("mac or IP address update failed... ",
+                  "Receiver will not reboot")
+
 
 if __name__ == "__main__":
     from mac_add_update import update_mac_addr, update_dst_ip, restart_recv
@@ -137,5 +150,5 @@ if __name__ == "__main__":
 
 else:
 
-    from network_check.mac_add_update import update_mac_addr, update_dst_ip, restart_recv
-
+    from network_check.mac_add_update import update_mac_addr, \
+        update_dst_ip, restart_recv
