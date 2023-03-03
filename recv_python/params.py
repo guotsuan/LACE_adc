@@ -112,6 +112,10 @@ if 'raw_rx' in sys.argv[0]:
                         default=20,
                         help="the number of files saved before stop")
 
+    parser.add_argument("--avg_n",
+                        type=int,
+                        help="the average times of the spectrum ")
+
     if "plot" in sys.argv[0]:
         parser.add_argument('--waterfall',
                             action=argparse.BooleanOptionalAction)
@@ -187,6 +191,11 @@ if 'raw_rx' in sys.argv[0]:
     sample_rate_over_1000 = data_conf['sample_rate']/1000
     fft_single_time = data_conf['fft_npoint'] / sample_rate_over_1000
     data_conf['fft_single_time'] = fft_single_time
+
+    if args.avg_n:
+        up_factor = args.avg_n // data_conf['avg_n']
+        data_conf['avg_n'] = args.avg_n
+        data_conf['n_blocks_to_save'] = 1024 * up_factor
     data_conf['avg_time'] = data_conf['avg_n']*fft_single_time
 
     # How many udp packets of data received in one read loop
@@ -229,6 +238,6 @@ if 'raw_rx' in sys.argv[0]:
                      "files")
 else:
     data_conf['fft_npoint'] = 65536
-    data_conf['file_stop_num'] = 400
+    data_conf['file_stop_num'] = 4000
 
 print(grid)

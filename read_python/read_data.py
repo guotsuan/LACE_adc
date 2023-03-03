@@ -223,27 +223,28 @@ def get_data(data_dir, nfft=None, power_unit='dBm', workers=None,
 
 
 if __name__ == '__main__':
-    file_list = get_data_file_list('/data/danl', 40)
-    print(file_list)
-    # import matplotlib.pyplot as plt
+    # print(file_list)
+    import matplotlib.pyplot as plt
     # data_dir ="/data/raw0/"
     # px,py,rbw = get_data(data_dir,nfft=65536)
     # cc='k'
     # plt.plot(px, py, color=cc, lw=1.0,
              # label="RX with fft post-processed")
 
-    # data_dir ="/data/fft_65536/"
+    data_dir ="/data1/60db_far_away/"
     # # plt.axvline(peakf, color='y', alpha=0.5)
-    # px,py2,rbw = get_data(data_dir)
-    # cc='k'
-    # plt.plot(px, py, '--', color='r', lw=0.8,
-             # label="RX with fft on-the-fly")
+    px,py2,rbw = get_data(data_dir, file_stop=10)
+    cc='k'
+    plt.figure(figsize=(8,6))
+    plt.plot(px, py2, '-', color='r', lw=0.5,
+             label="80dB dunhuang")
     # plt.ylim([-100,-60])
-    # plt.xlim([-1,245])
-    # plt.xlabel("MHz")
-    # plt.ylabel("dBm")
-    # plt.title("Sanity Check")
-    # plt.legend()
-    # plt.show()
+    plt.xlim([-1,245])
+    plt.xlabel("MHz")
+    plt.ylabel("dBm")
+    plt.title("test")
+    plt.legend()
+    # plt.savefig("test.pdf")
+    plt.show()
 
 

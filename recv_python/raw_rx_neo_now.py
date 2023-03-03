@@ -158,7 +158,7 @@ if err:
     sock.close()
     raise ValueError("set socket error")
 
-sock.bind((udp_ip, udp_port))
+sock.bind(('', udp_port))
 grid.add_row("Receiving IP and Port: ", f"{udp_ip}:{udp_port}", "[green]ok")
 
 
@@ -509,6 +509,8 @@ if __name__ == '__main__':
                         wfile = executor.submit(dumpdata_hdf5_fft_spectrum,
                                                 data_dir, udp_payload_arr,
                                                 id_arr)
+                        # dumpdata_hdf5_fft_spectrum(data_dir, udp_payload_arr,
+                                                # id_arr)
                     else:
                         wfile = executor.submit(dumpdata_hdf5_raw,
                                                 data_dir, data_conf,
@@ -525,7 +527,7 @@ if __name__ == '__main__':
 
                 time_now = time.perf_counter()
 
-                if time_now - time_last > 5.0:
+                if time_now - time_last > 10.0:
 
                     time_last = time.perf_counter()
                     live.update(
