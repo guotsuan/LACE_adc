@@ -70,6 +70,8 @@ else:
     if node_name == 'lacebian1':
         # network_faces = ["enp10s0", "enp10s0", "enp10s0f1", "enp10s0f1"]
         network_faces = ["enp10s0", "", "", ""]
+    elif node_name == "firefly":
+        network_faces = ["enp63s0", "", "", ""]
     elif node_name == "gqhp":
         network_faces = ["enp153s0f0", "enp153s0f0", "enp153s0f1",
                          "enp153s0f1"]

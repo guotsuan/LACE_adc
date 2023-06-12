@@ -231,9 +231,9 @@ if __name__ == '__main__':
     # plt.plot(px, py, color=cc, lw=1.0,
              # label="RX with fft post-processed")
 
-    data_dir ="/data1/60db_far_away/"
+    data_dir ="/home/gq/data/test1/"
     # # plt.axvline(peakf, color='y', alpha=0.5)
-    px,py2,rbw = get_data(data_dir, file_stop=10)
+    px,py2,rbw = get_data(data_dir, file_stop=4)
     cc='k'
     plt.figure(figsize=(8,6))
     plt.plot(px, py2, '-', color='r', lw=0.5,

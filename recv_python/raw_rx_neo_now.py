@@ -28,12 +28,6 @@ import time
 import json
 import datetime
 import shutil
-from concurrent import futures
-from rich.live import Live, Console
-from rich.table import Table
-from rich import print
-from monitor_voltage import check_voltage
-
 import h5py as h5
 import numpy as np
 import cupy as cp
@@ -42,10 +36,22 @@ import cupyx.scipy.fft as cufft
 from params import (data_conf, src_ip, src_port,
                     dst_ip, dst_port, labels, output_sel,
                     args, sample_rate_over_1000, rx_buffer)
+
 from rx_helper import (set_noblocking_keyboard, epoctime2date,
                        data_file_prefix, read_temp, save_meta_file,
                        display_metrics_header, display_metrics_rich,
                        plan)
+
+from concurrent import futures
+from rich.live import Live
+from rich.table import Table
+from rich import print
+try: 
+    from monitor_voltage import check_voltage
+    voltage_m = True
+except:
+    print("Voltage monitering....off")
+    voltage_m = False
 
 # put all configrable parameters in params.py
 
@@ -150,9 +156,9 @@ err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rx_buffer)
 err = sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 sock.settimeout(2.0)
 
-affinity_mask = {0, 1}
-pid = 0
-os.sched_setaffinity(0, affinity_mask)
+# affinity_mask = {22,23}
+# pid = 0
+# os.sched_setaffinity(0, affinity_mask)
 
 if err:
     sock.close()
@@ -219,16 +225,17 @@ def dumpdata_hdf5_raw(data_dir, data_conf, data, id_data, block_time):
     file_path_old = file_path
     tot_file_cnt += 1
 
-    volt = check_voltage()
+    if voltage_m:
+        volt = check_voltage()
 
-    if (volt0 - volt > 4.4 and volt > 0) or (volt < abs_fail_volt):
-        voltage_fail += 1
+        if (volt0 - volt > 4.4 and volt > 0) or (volt < abs_fail_volt):
+            voltage_fail += 1
 
-    if voltage_fail > 10:
-        print("System will shut down in 1 min")
-        logging.warning("System shut down due to the low power")
-        os.system("sudo shutdown -P 1")
-        forever = False
+        if voltage_fail > 10:
+            print("System will shut down in 1 min")
+            logging.warning("System shut down due to the low power")
+            os.system("sudo shutdown -P 1")
+            forever = False
 
     if tot_file_cnt == file_stop_num:
         forever = False
@@ -305,16 +312,17 @@ def dumpdata_hdf5_fft_spectrum(data_dir, data, id_data):
         tot_file_cnt += 1
         file_path_old = file_path
 
-        volt = check_voltage()
+        if voltage_m:
+            volt = check_voltage()
 
-        if (volt0 - volt > 4.4 and volt > 0) or (volt < abs_fail_volt):
-            voltage_fail += 1
+            if (volt0 - volt > 4.4 and volt > 0) or (volt < abs_fail_volt):
+                voltage_fail += 1
 
-        if voltage_fail > 10:
-            print("System will shut down in 1 min")
-            logging.warning("System shut down due to the low power")
-            os.system("sudo shutdown -P 1")
-            forever = False
+            if voltage_fail > 10:
+                print("System will shut down in 1 min")
+                logging.warning("System shut down due to the low power")
+                os.system("sudo shutdown -P 1")
+                forever = False
 
         if tot_file_cnt == file_stop_num:
             forever = False
@@ -327,11 +335,16 @@ if __name__ == '__main__':
     # Warm up the system....
     # Drop the some data packets to avoid unstable
 
-    volt0 = check_voltage()
-    if volt0 > 18.0:
-        grid.add_row("System main power voltage", f"{volt0} V", "[green]ok")
+    if voltage_m:
+        volt0 = check_voltage()
+        if volt0 > 18.0:
+            grid.add_row("System main power voltage", f"{volt0} V", "[green]ok")
+        else:
+            grid.add_row("System main power voltage", f"{volt0} V",
+                         "[red]warning!")
+
     else:
-        grid.add_row("System main power voltage", f"{volt0} V",
+        grid.add_row("System main power voltage", "Unknown",
                      "[red]warning!")
 
     payload_buff_head = payload_buff
@@ -418,6 +431,12 @@ if __name__ == '__main__':
 
     time_now = time.perf_counter()
 
+    pi1arr = np.arange(0, n_frames_per_loop*data_size, data_size)
+    pi2arr = np.arange(data_size, n_frames_per_loop*data_size+data_size,
+                       data_size)
+    hi1arr = np.arange(0, n_frames_per_loop*id_size, id_size)
+    hi2arr = np.arange(id_size, n_frames_per_loop * id_size + id_size, id_size)
+
     try:
         with Live(display_metrics_header(), auto_refresh=False) as live:
             while forever:
@@ -441,18 +460,13 @@ if __name__ == '__main__':
                 block_time1 = time.time()
                 save_lost = False
 
-                while count_down:
+                for i in range(count_down):
                     sock.recv_into(payload_buff, payload_size)
-                    data_buff[pi1:pi2] = payload_buff[0:data_size]
-                    id_buff[hi1:hi2] = payload_buff[payload_size -
+                    data_buff[pi1arr[i]:pi2arr[i]] = payload_buff[0:data_size]
+                    id_buff[hi1arr[i]:hi2arr[i]] = payload_buff[payload_size -
                                                     id_size:payload_size]
 
-                    pi1 += data_size
-                    pi2 += data_size
-                    hi1 += id_size
-                    hi2 += id_size
 
-                    count_down -= 1
 
                 block_time2 = time.time()
                 id_arr = np.uint32(np.frombuffer(udp_id, dtype='>u4'))
@@ -486,7 +500,7 @@ if __name__ == '__main__':
                                                         udp_payload_arr,
                                                         id_arr, block_time)
                         else:
-                            print("block is dropped")
+                            print("block is dropped", num_lost_p)
                             logging.warning("block is dropped")
                     else:
                         if data_conf['output_fft']:

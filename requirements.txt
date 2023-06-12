@@ -10,3 +10,4 @@ pynmea2>=1.18.0
 pyserial>=3.5
 scapy>=2.4.5
 scipy>=1.9.1
+python>=3.11

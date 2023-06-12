@@ -2,6 +2,12 @@
 
 ADC data recieving program draft (Python) version
 
+## Create Python Env
+```
+mamba -n adc2 --file requirement.txt
+mamba activate adc2
+```
+
 ## System requirement 
 1. check_system.py will set kernel parameters and update the setting of Receiver accordingly
 ```
