@@ -13,12 +13,10 @@ import platform as pf
 import netifaces
 import argparse
 import os
-from rich.console import Console
 from rich import print
 from rich.table import Table
 import sys
 
-console=Console()
 
 class bcolors:
     HEADER = '\033[95m'
@@ -36,11 +34,19 @@ def is_nic_up(nic):
     addr = netifaces.ifaddresses(nic)
     return netifaces.AF_INET in addr
 
+data_conf = {}
+labels = ["RAW_output1", "FFT_output1", "RAW_output2", "FFT_output2"]
+src_ip = ["192.168.90.20", "192.168.90.21", "192.168.90.30", "192.168.90.31"]
+src_port = [59000, 59001, 59000, 59001]
+dst_port = [60000, 60001, 60000, 60001]
+dst_mac = []
+dst_ip = []
+
 grid = Table.grid()
 grid.add_column(justify="left", width=50, vertical="center")
 grid.add_column(width=30, vertical="cetner")
 grid.add_column(justify="right", width=20, vertical="center")
-grid.add_row("", "Info","", style='bold white on blue')
+grid.add_row("", "Info", "", style='bold white on blue')
 
 green_ok = bcolors.OKGREEN + " .....OK." + bcolors.ENDC
 # green_fft_data = bcolors.OKGREEN + "FFT data" + bcolors.ENDC
@@ -54,13 +60,6 @@ green_raw_data = "[red]RAW data"
 # dst_ip = ["192.168.90.100", "192.168.90.101",
 #           "192.168.90.100", "192.168.90.111"]
 
-labels = ["RAW_output1", "FFT_output1", "RAW_output2", "FFT_output2"]
-src_ip = ["192.168.90.20", "192.168.90.21", "192.168.90.30", "192.168.90.31"]
-src_port = [59000, 59001, 59000, 59001]
-dst_port = [60000, 60001, 60000, 60001]
-dst_mac = []
-dst_ip = []
-data_conf = {}
 
 platform_system = pf.system()
 if 'Darwin' in platform_system:

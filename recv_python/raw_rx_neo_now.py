@@ -33,6 +33,8 @@ import numpy as np
 import cupy as cp
 import logging
 import cupyx.scipy.fft as cufft
+
+from numba import jit
 from params import (data_conf, src_ip, src_port,
                     dst_ip, dst_port, labels, output_sel,
                     args, sample_rate_over_1000, rx_buffer)
@@ -61,6 +63,7 @@ file_path = ''
 file_path_old = ''
 data_dir = data_conf['data_dir']
 abs_fail_volt = data_conf['abs_fail_volt']
+
 
 # print(" ")
 grid = Table.grid(expand=False)
@@ -243,7 +246,6 @@ def dumpdata_hdf5_raw(data_dir, data_conf, data, id_data, block_time):
 
     return
 
-
 def dumpdata_hdf5_fft_spectrum(data_dir, data, id_data):
 
     global nn, voltage_fail, abs_fail_volt
@@ -372,7 +374,7 @@ if __name__ == '__main__':
                                             payload_size], 'big')
 
     id_tail_before = int.from_bytes(warmup_data[payload_size-id_size:
-                                                payload_size], 'big')
+                                                payload_size], 'big') 
 
     grid.add_row("Warmup finished with last data seqNo: ",
                  f"{id_tail_before}, {tmp_id % block_size}",
@@ -410,7 +412,7 @@ if __name__ == '__main__':
 
     # FIXME: how to save time xxxxxx.xxxx properly
 
-    data_conf['id_tail_before'] = id_tail_before
+    #data_conf['id_tail_before'] = nnp.int64(id_tail_before)
     data_conf['t0_time'] = t0_time
     start_id = id_tail_before
     save_meta_file(os.path.join(data_dir, 'info.h5'), t0_time, id_tail_before,
@@ -507,6 +509,9 @@ if __name__ == '__main__':
                             wfile = executor.submit(dumpdata_hdf5_fft_spectrum,
                                                     data_dir, udp_payload_arr,
                                                     id_arr)
+                            # dumpdata_hdf5_fft_spectrum(data_dir, 
+                                                       # udp_payload_arr, 
+                                                       # id_arr)
                         else:
                            dumpdata_hdf5_raw(data_dir, data_conf,
                                              udp_payload_arr,
